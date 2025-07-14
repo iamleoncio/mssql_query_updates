@@ -1,5 +1,5 @@
                                                 
-CREATE   PROCEDURE usp_k2lapply                                                              
+ALTER   PROCEDURE usp_k2lapply                                                              
 (                                                              
     @pPrincipal NUMERIC(16,2),                                                              
     @pTerms INT,                                                              
@@ -242,8 +242,7 @@ DECLARE @tAmortAcc varchar(22)
                                                               
                                                                                         
 ------------------------- INSERT TO GABAYKONEKDTLS -----------------                                                                 
-INSERT INTO gabayKonekDtls ( loanid, midasdate, midasresult,midasremarks,recommender, recommenddate,UmApprover,UMApproverDate, AMApprover,AMApproverDate,RDApprover,RDApproverDate,AOName,UMName,CoborrowerName,Corelationship,eSignAO,eSignUM,esignAM,eSignCl
-Ient)                                        
+INSERT INTO gabayKonekDtls ( loanid, midasdate, midasresult,midasremarks,recommender, recommenddate,UmApprover,UMApproverDate, AMApprover,AMApproverDate,RDApprover,RDApproverDate,AOName,UMName,CoborrowerName,Corelationship,eSignAO,eSignUM,esignAM,eSignClIent)                                        
 VALUES(@pRefno, @pMidasdate,@pMidasresult,@pMidasremarks, @pRecommender,@pRecommendDate,@pUMApprover,@pUMApproverDate,@pAMApprover,@pAMApproverDate,@pRDApprover,@pRDApproverDate,@pAOname,@pUMname,@pCoborrowerName,@pCoRelationship,'','','','')             
   
                         
