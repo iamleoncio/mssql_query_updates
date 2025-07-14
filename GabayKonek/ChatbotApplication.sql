@@ -1,4 +1,4 @@
-CREATE view [dbo].[ChatbotApplication]             
+ALTER view [dbo].[ChatbotApplication]             
 /*        
 Edited by Leon         
 05/29/2025        
