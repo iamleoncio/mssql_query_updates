@@ -3,24 +3,24 @@ $Owner = 'iamleoncio'
 $Repo = 'mssql_query_updates'
 $Branch = 'main'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
 
-# If repo is private, add token like:
-# $Headers['Authorization'] = 'Bearer YOUR_PAT'
+# GitHub token (keep this secure)
+$Token = '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'  # ← Replace with your token
+$Headers = @{
+    'User-Agent'    = 'PowerShell-GUI-App'
+    'Authorization' = "Bearer $Token"
+}
 
-# Util: encode path safely
 function Encode-Path($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
 }
 
-# Util: read GitHub folder
 function Get-GitHubContent($Path = '') {
     $encoded = if ($Path) { '/' + (Encode-Path $Path) } else { '' }
     $url = "https://api.github.com/repos/$Owner/$Repo/contents$encoded?ref=$Branch"
     Invoke-RestMethod -Uri $url -Headers $Headers
 }
 
-# Util: recursive folder downloader
 function Get-Folder($Path, $Target) {
     $items = Get-GitHubContent $Path
     foreach ($item in $items) {
@@ -130,5 +130,5 @@ $btn.Add_Click({
     }
 })
 
-# Run
+# Run the form
 [void]$form.ShowDialog()
