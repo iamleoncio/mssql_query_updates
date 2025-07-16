@@ -1,193 +1,79 @@
-# ── CONFIG ───────────────────────────────────────────────────────────────
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
 $Branch = 'main'
 
-# Required headers: GitHub rejects requests without User-Agent.
-$Headers = @{
-    'User-Agent' = 'PowerShellApp'
-    'Accept'     = 'application/vnd.github.v3+json'
+function Get-RepoContents($Path = '') {
+    $encodedPath = if ($Path) { '/' + [uri]::EscapeDataString($Path) } else { '' }
+    $url = "https://api.github.com/repos/$Owner/$Repo/contents$encodedPath?ref=$Branch"
+    Invoke-RestMethod -Uri $url -Headers @{ 'User-Agent' = 'PowerShell' }
 }
 
-# Optional: Add GitHub Personal Access Token for authenticated requests
-$Token = $env:GITHUB_TOKEN  # Set this environment variable or hardcode (not recommended)
-if ($Token) {
-    $Headers['Authorization'] = "token $Token"
-}
-
-# ── GITHUB HELPERS ───────────────────────────────────────────────────────
-function Encode-Path([string]$Path) {
-    if (-not $Path) { return '' }
-    ($Path -split '/') |
-        ForEach-Object { [uri]::EscapeDataString($_) } |
-        Join-String -Separator '/'
-}
-
-function Get-GitHubContent([string]$Path = '') {
-    $encPath = Encode-Path $Path
-    $url = if ($encPath) {
-        "https://api.github.com/repos/$Owner/$Repo/contents/$encPath?ref=$Branch"
-    } else {
-        "https://api.github.com/repos/$Owner/$Repo/contents?ref=$Branch"
-    }
-    try {
-        $response = Invoke-RestMethod -Uri $url -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        $statusCode = $_.Exception.Response.StatusCode.value__ ?? 'Unknown'
-        throw "Failed to fetch content from GitHub: HTTP $statusCode - $($_.Exception.Message)"
-    }
-}
-
-function Download-GitHubFolder([string]$Path, [string]$Target, [System.Windows.Forms.Form]$Form) {
-    $items = Get-GitHubContent $Path
-    $totalItems = $items.Count
-    $currentItem = 0
-
-    # Create a progress bar
-    $progressBar = New-Object Windows.Forms.ProgressBar
-    $progressBar.Size = '300,20'
-    $progressBar.Location = '100,280'
-    $progressBar.Maximum = $totalItems
-    $Form.Controls.Add($progressBar)
-
+function Download-Folder($Path, $TargetFolder) {
+    $items = Get-RepoContents $Path
     foreach ($item in $items) {
-        $currentItem++
-        $progressBar.Value = $currentItem
-        $Form.Text = "Downloading: $Path ($currentItem/$totalItems)"
-        $dest = Join-Path $Target $item.name
-
+        $target = Join-Path $TargetFolder $item.name
         if ($item.type -eq 'file') {
-            # Check if file exists
-            if (Test-Path $dest) {
-                $overwrite = [System.Windows.Forms.MessageBox]::Show(
-                    "File '$($item.name)' already exists. Overwrite?",
-                    'Confirm Overwrite',
-                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
-                    [System.Windows.Forms.MessageBoxIcon]::Question)
-                if ($overwrite -ne 'Yes') { continue }
-            }
-            try {
-                Invoke-WebRequest -Uri $item.download_url -OutFile $dest -Headers $Headers -ErrorAction Stop
-            } catch {
-                throw "Failed to download '$($item.name)': $($_.Exception.Message)"
-            }
+            Invoke-WebRequest -Uri $item.download_url -OutFile $target
         } elseif ($item.type -eq 'dir') {
-            if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
-            Download-GitHubFolder -Path $item.path -Target $dest -Form $Form
+            if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
+            Download-Folder -Path $item.path -TargetFolder $target
         }
     }
-    $Form.Controls.Remove($progressBar)
 }
 
-# ── GUI SETUP ────────────────────────────────────────────────────────────
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
+# GUI Setup
 $form = New-Object Windows.Forms.Form
-$form.Text            = "$Repo Browser"
-$form.Size            = New-Object Drawing.Size(500, 400)
-$form.StartPosition   = 'CenterScreen'
-$form.BackColor       = '#1e1e1e'
-$form.ForeColor       = 'White'
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox     = $false
+$form.Text = "Repo Browser"
+$form.Size = '500,400'
+$form.StartPosition = 'CenterScreen'
+$form.BackColor = '#1e1e1e'
+$form.ForeColor = 'White'
 
-# Welcome Label
 $label = New-Object Windows.Forms.Label
-$label.Text      = 'Welcome to Apps Knowledge'
-$label.Font      = New-Object Drawing.Font('Segoe UI', 18, [Drawing.FontStyle]::Bold)
-$label.AutoSize  = $true
-$label.BackColor = 'Transparent'
+$label.Text = 'Select a Folder to Download'
+$label.AutoSize = $true
+$label.Font = 'Segoe UI,14'
+$label.Top = 20
+$label.Left = 140
 $form.Controls.Add($label)
 
-# Center the label dynamically
-$form.Add_Resize({
-    $label.Left = ($form.ClientSize.Width - $label.Width) / 2
-    $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
-})
+$listBox = New-Object Windows.Forms.ListBox
+$listBox.Size = '400,200'
+$listBox.Location = '45,60'
+$form.Controls.Add($listBox)
 
-# Folder List
-$list = New-Object Windows.Forms.ListBox
-$list.Size      = New-Object Drawing.Size(320, 210)
-$list.Location  = New-Object Drawing.Point(80, 80)
-$list.Visible   = $false
-$form.Controls.Add($list)
-
-# Download Button
 $btn = New-Object Windows.Forms.Button
-$btn.Text       = 'Download Selected Folder'
-$btn.Size       = New-Object Drawing.Size(220, 30)
-$btn.Location   = New-Object Drawing.Point(140, 310)
-$btn.BackColor  = '#3a3d41'
-$btn.ForeColor  = 'White'
-$btn.Visible    = $false
+$btn.Text = "Download Selected"
+$btn.Size = '180,30'
+$btn.Location = '160,280'
 $form.Controls.Add($btn)
 
-# ── Load top-level folders after 1s (reduced delay for better UX) ────────
-$delay = New-Object Windows.Forms.Timer
-$delay.Interval = 1000
-$delay.Add_Tick({
-    $delay.Stop()
-    $label.Visible = $false
-    try {
-        $top = Get-GitHubContent | Where-Object { $_.type -eq 'dir' }
-        if (-not $top) {
-            [System.Windows.Forms.MessageBox]::Show('No folders found in the repository.', 'Info')
-            $form.Close()
-            return
-        }
-        $top.name | ForEach-Object { $list.Items.Add($_) }
-        $list.Visible = $btn.Visible = $true
-    } catch {
-        $errorMsg = $_.Exception.Message
-        [System.Windows.Forms.MessageBox]::Show("Error loading folders:`n$errorMsg", 'GitHub Error',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error)
-        $form.Close()
-    }
-})
-$delay.Start()
-
-# ── Button Action ───────────────────────────────────────────────────────
 $btn.Add_Click({
-    if (-not $list.SelectedItem) {
-        [System.Windows.Forms.MessageBox]::Show('Please select a folder.', 'Warning',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Warning)
+    if (-not $listBox.SelectedItem) {
+        [System.Windows.Forms.MessageBox]::Show("Select a folder.")
         return
     }
 
-    $folder = $list.SelectedItem.ToString()
+    $folder = $listBox.SelectedItem
     $dlg = New-Object Windows.Forms.FolderBrowserDialog
-    $dlg.Description = "Select a destination folder for '$folder'"
     if ($dlg.ShowDialog() -ne 'OK') { return }
 
     try {
-        Download-GitHubFolder -Path $folder -Target $dlg.SelectedPath -Form $form
-        [System.Windows.Forms.MessageBox]::Show(
-            "$folder downloaded to:`n$($dlg.SelectedPath)", 'Success',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information)
+        Download-Folder -Path $folder -TargetFolder $dlg.SelectedPath
+        [System.Windows.Forms.MessageBox]::Show("Downloaded: $folder", "Done")
     } catch {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Download failed:`n$($_.Exception.Message)", 'Error',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error)
+        [System.Windows.Forms.MessageBox]::Show("Error downloading folder: $_")
     }
 })
 
-# ── Fade-in Effect ──────────────────────────────────────────────────────
-$form.Opacity = 0
-$fadeTimer = New-Object Windows.Forms.Timer
-$fadeTimer.Interval = 50
-$fadeTimer.Add_Tick({
-    if ($form.Opacity -lt 1) {
-        $form.Opacity += 0.1
-    } else {
-        $fadeTimer.Stop()
-    }
-})
-$fadeTimer.Start()
+try {
+    $folders = Get-RepoContents | Where-Object { $_.type -eq 'dir' }
+    $folders | ForEach-Object { $listBox.Items.Add($_.name) }
+} catch {
+    [System.Windows.Forms.MessageBox]::Show("Failed to load folders: $_")
+}
 
 [void]$form.ShowDialog()
