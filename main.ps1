@@ -1,6 +1,6 @@
 <# ── CONFIG ──────────────────────────────── #>
-$Owner  = 'yourname'      # ← replace with your GitHub username
-$Repo   = 'ps-tools'      # ← replace with your repo name
+$Owner  = 'iamleoncio'      # ← replace with your GitHub username
+$Repo   = 'mssql_query_updates'      # ← replace with your repo name
 $Branch = 'main'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
