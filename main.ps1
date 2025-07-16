@@ -1,16 +1,21 @@
-function Show-Menu {
-    Clear-Host
-    Write-Host "==== My PowerShell App ===="
-    Write-Host "1. Clone Repo"
-    Write-Host "2. Show System Info"
-    Write-Host "0. Exit"
-    $choice = Read-Host "Select an option"
-    switch ($choice) {
-        1 { git clone https://github.com/yourname/ps-tools.git $env:TEMP\ps-tools }
-        2 { Get-ComputerInfo | Out-Host }
-        0 { exit }
-        default { Write-Host "Invalid option"; Pause }
-    }
-}
+Add-Type -AssemblyName System.Windows.Forms
 
-while ($true) { Show-Menu }
+# Create the form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Apps Knowledge"
+$form.Size = New-Object System.Drawing.Size(400, 200)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = 'White'
+
+# Create label
+$label = New-Object System.Windows.Forms.Label
+$label.Text = "Welcome to Apps Knowledge"
+$label.AutoSize = $true
+$label.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+$label.Location = New-Object System.Drawing.Point(50, 60)
+
+# Add label to form
+$form.Controls.Add($label)
+
+# Show the form
+$form.ShowDialog()
