@@ -1,44 +1,57 @@
+<<<<<<< HEAD
 <# CONFIG ──────────────────────────────────────── #>
+=======
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+>>>>>>> 219692d4d8365ce716e613de71f39d4a231e0503
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
 $Branch = 'main'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+<<<<<<< HEAD
 $Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }  # ✅ NO AUTHORIZATION HEADER
 
 function Encode-Path ($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
+=======
+function Get-RepoContents($Path = '') {
+    $encodedPath = if ($Path) { '/' + [uri]::EscapeDataString($Path) } else { '' }
+    $url = "https://api.github.com/repos/$Owner/$Repo/contents$encodedPath?ref=$Branch"
+    Invoke-RestMethod -Uri $url -Headers @{ 'User-Agent' = 'PowerShell' }
+>>>>>>> 219692d4d8365ce716e613de71f39d4a231e0503
 }
 
-function Get-GitHubContent ($Path = '') {
-    $enc = if ($Path) { '/' + (Encode-Path $Path) } else { '' }
-    $url = "https://api.github.com/repos/$Owner/$Repo/contents$enc?ref=$Branch"
-    Invoke-RestMethod -Uri $url -Headers $Headers
-}
-
-function Get-Folder ($Path, $Target) {
-    $items = Get-GitHubContent $Path
-    foreach ($i in $items) {
-        $dest = Join-Path $Target $i.name
-        if ($i.type -eq 'file') {
-            Invoke-WebRequest $i.download_url -OutFile $dest -Headers $Headers
-        } elseif ($i.type -eq 'dir') {
-            if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
-            Get-Folder -Path $i.path -Target $dest
+function Download-Folder($Path, $TargetFolder) {
+    $items = Get-RepoContents $Path
+    foreach ($item in $items) {
+        $target = Join-Path $TargetFolder $item.name
+        if ($item.type -eq 'file') {
+            Invoke-WebRequest -Uri $item.download_url -OutFile $target
+        } elseif ($item.type -eq 'dir') {
+            if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
+            Download-Folder -Path $item.path -TargetFolder $target
         }
     }
 }
 
+<<<<<<< HEAD
 <# GUI ──────────────────────────────────────────── #>
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object Windows.Forms.Form
 $form.Text = "$Repo Browser"
+=======
+# GUI Setup
+$form = New-Object Windows.Forms.Form
+$form.Text = "Repo Browser"
+>>>>>>> 219692d4d8365ce716e613de71f39d4a231e0503
 $form.Size = '500,400'
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = '#1e1e1e'
 $form.ForeColor = 'White'
+<<<<<<< HEAD
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 
@@ -48,12 +61,18 @@ $label.Text = 'Welcome to Apps Knowledge'
 $label.Font = 'Segoe UI,18,style=Bold'
 $label.AutoSize = $true
 $label.BackColor = 'Transparent'
-$form.Controls.Add($label)
-$form.Add_Shown({ 
-    $label.Left = ($form.ClientSize.Width  - $label.Width)  / 2
-    $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
-})
+=======
 
+$label = New-Object Windows.Forms.Label
+$label.Text = 'Select a Folder to Download'
+$label.AutoSize = $true
+$label.Font = 'Segoe UI,14'
+$label.Top = 20
+$label.Left = 140
+>>>>>>> 219692d4d8365ce716e613de71f39d4a231e0503
+$form.Controls.Add($label)
+
+<<<<<<< HEAD
 # Fade
 $form.Opacity = 0
 $fade = New-Object Windows.Forms.Timer
@@ -97,21 +116,42 @@ $delay.Add_Tick({
 $delay.Start()
 
 # Download logic
+=======
+$listBox = New-Object Windows.Forms.ListBox
+$listBox.Size = '400,200'
+$listBox.Location = '45,60'
+$form.Controls.Add($listBox)
+
+$btn = New-Object Windows.Forms.Button
+$btn.Text = "Download Selected"
+$btn.Size = '180,30'
+$btn.Location = '160,280'
+$form.Controls.Add($btn)
+
+>>>>>>> 219692d4d8365ce716e613de71f39d4a231e0503
 $btn.Add_Click({
-    if (-not $list.SelectedItem) {
-        [Windows.Forms.MessageBox]::Show('Select a folder first.')
+    if (-not $listBox.SelectedItem) {
+        [System.Windows.Forms.MessageBox]::Show("Select a folder.")
         return
     }
-    $folder = $list.SelectedItem
+
+    $folder = $listBox.SelectedItem
     $dlg = New-Object Windows.Forms.FolderBrowserDialog
     if ($dlg.ShowDialog() -ne 'OK') { return }
 
     try {
-        Get-Folder -Path $folder -Target $dlg.SelectedPath
-        [Windows.Forms.MessageBox]::Show("$folder downloaded to:`n$($dlg.SelectedPath)",'Success')
+        Download-Folder -Path $folder -TargetFolder $dlg.SelectedPath
+        [System.Windows.Forms.MessageBox]::Show("Downloaded: $folder", "Done")
     } catch {
-        [Windows.Forms.MessageBox]::Show("Download failed:`n$_",'Error')
+        [System.Windows.Forms.MessageBox]::Show("Error downloading folder: $_")
     }
 })
+
+try {
+    $folders = Get-RepoContents | Where-Object { $_.type -eq 'dir' }
+    $folders | ForEach-Object { $listBox.Items.Add($_.name) }
+} catch {
+    [System.Windows.Forms.MessageBox]::Show("Failed to load folders: $_")
+}
 
 [void]$form.ShowDialog()
