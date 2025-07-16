@@ -1,15 +1,12 @@
-<# CONFIG #>
-$Owner = 'iamleoncio'
-$Repo = 'mssql_query_updates'
+<# CONFIG ──────────────────────────────────────── #>
+$Owner  = 'iamleoncio'
+$Repo   = 'mssql_query_updates'
 $Branch = 'main'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
 
-# If repo is private, add token like:
-# $Headers['Authorization'] = 'Bearer YOUR_PAT'
+$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }  # ✅ NO AUTHORIZATION HEADER
 
-# Util: encode path safely
-function Encode-Path($Path) {
+function Encode-Path ($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
 }
 
@@ -32,24 +29,24 @@ function Get-Folder ($Path, $Target) {
     }
 }
 
-# GUI Setup
+<# GUI ──────────────────────────────────────────── #>
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object Windows.Forms.Form
-$form.Text            = "$Repo Browser"
-$form.Size            = '500,400'
-$form.StartPosition   = 'CenterScreen'
-$form.BackColor       = '#1e1e1e'
-$form.ForeColor       = 'White'
+$form.Text = "$Repo Browser"
+$form.Size = '500,400'
+$form.StartPosition = 'CenterScreen'
+$form.BackColor = '#1e1e1e'
+$form.ForeColor = 'White'
 $form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox     = $false
+$form.MaximizeBox = $false
 
-# Welcome label
+# Welcome
 $label = New-Object Windows.Forms.Label
-$label.Text      = 'Welcome to Apps Knowledge'
-$label.Font      = 'Segoe UI,18,style=Bold'
-$label.AutoSize  = $true
+$label.Text = 'Welcome to Apps Knowledge'
+$label.Font = 'Segoe UI,18,style=Bold'
+$label.AutoSize = $true
 $label.BackColor = 'Transparent'
 $form.Controls.Add($label)
 $form.Add_Shown({ 
@@ -57,35 +54,35 @@ $form.Add_Shown({
     $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
 })
 
-# Fade-in effect
-$form.Opacity = 0.0
+# Fade
+$form.Opacity = 0
 $fade = New-Object Windows.Forms.Timer
 $fade.Interval = 50
 $fade.Add_Tick({ if ($form.Opacity -lt 1) { $form.Opacity += 0.1 } else { $fade.Stop() } })
 $fade.Start()
 
-# Folder list
+# List
 $list = New-Object Windows.Forms.ListBox
-$list.Size      = '300,200'
-$list.Location  = '90,80'
-$list.Visible   = $false
+$list.Size = '300,200'
+$list.Location = '90,80'
+$list.Visible = $false
 $form.Controls.Add($list)
 
-# Download button
+# Button
 $btn = New-Object Windows.Forms.Button
-$btn.Text       = 'Download Selected Folder'
-$btn.Size       = '200,30'
-$btn.Location   = '150,300'
-$btn.BackColor  = '#3a3d41'
-$btn.ForeColor  = 'White'
-$btn.Visible    = $false
+$btn.Text = 'Download Selected Folder'
+$btn.Size = '200,30'
+$btn.Location = '150,300'
+$btn.BackColor = '#3a3d41'
+$btn.ForeColor = 'White'
+$btn.Visible = $false
 $form.Controls.Add($btn)
 
-# Load folders after 3 seconds
-$loadTimer = New-Object Windows.Forms.Timer
-$loadTimer.Interval = 3000
-$loadTimer.Add_Tick({
-    $loadTimer.Stop()
+# Load after 3s
+$delay = New-Object Windows.Forms.Timer
+$delay.Interval = 3000
+$delay.Add_Tick({
+    $delay.Stop()
     $label.Visible = $false
     try {
         $dirs = Get-GitHubContent | Where-Object type -eq 'dir'
@@ -99,7 +96,7 @@ $loadTimer.Add_Tick({
 })
 $delay.Start()
 
-# Download button click
+# Download logic
 $btn.Add_Click({
     if (-not $list.SelectedItem) {
         [Windows.Forms.MessageBox]::Show('Select a folder first.')
