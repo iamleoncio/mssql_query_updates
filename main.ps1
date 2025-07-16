@@ -1,10 +1,8 @@
-<# CONFIG #>
+# CONFIG
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
 $Branch = 'main'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
+$Headers = @{ 'User-Agent' = 'PowerShellApp' }
 
 function Encode-Path ($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
@@ -29,7 +27,7 @@ function Get-Folder ($Path, $Target) {
     }
 }
 
-<# GUI SETUP #>
+# GUI Setup
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -54,7 +52,7 @@ $form.Add_Shown({
     $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
 })
 
-# Fade-in effect
+# Fade-in
 $form.Opacity = 0
 $fade = New-Object Windows.Forms.Timer
 $fade.Interval = 50
@@ -78,7 +76,7 @@ $btn.ForeColor  = 'White'
 $btn.Visible    = $false
 $form.Controls.Add($btn)
 
-# Show folders after 3 seconds
+# Populate list after 3 seconds
 $delay = New-Object Windows.Forms.Timer
 $delay.Interval = 3000
 $delay.Add_Tick({
@@ -96,7 +94,7 @@ $delay.Add_Tick({
 })
 $delay.Start()
 
-# Button click to download selected folder
+# Button logic
 $btn.Add_Click({
     if (-not $list.SelectedItem) {
         [Windows.Forms.MessageBox]::Show('Select a folder first.')
