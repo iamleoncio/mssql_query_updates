@@ -77,10 +77,12 @@ function Get-Folder {
 <# ── DOWNLOAD BUTTON ───────────────────────────────────────────────────── #>
 $btn.Add_Click({
     if (-not $lst.SelectedItem) {
-        [System.Windows.Forms.MessageBox]::Show('Select a folder first.'); return
+        [System.Windows.Forms.MessageBox]::Show("Select a folder first.")
+        return
     }
+
     $folder = $lst.SelectedItem.ToString()
-    $dlg    = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
     if ($dlg.ShowDialog() -ne 'OK') { return }
 
     try {
