@@ -48,12 +48,17 @@ BEGIN
     SET @pAmort =        
         CASE        
             WHEN @pAccttype = 344        
-                THEN ROUND((@pPrincipal * (1 + CAST(@pInterest AS FLOAT) / @pPrincipal)) / @pTerm, 2)        
+            THEN ROUND((@pPrincipal * (1 + CAST(@pInterest AS FLOAT) / @pPrincipal)) / @pTerm, 2)  
+            WHEN @pAccttype in (420,461,476) THEN CEILING((@pPrincipal*(1+(0.24/50) * @pTerm)/@pTerm)/ 5.0) * 5   
             ELSE CEILING((@pPrincipal * (1 + CAST(@pInterest AS FLOAT) / @pPrincipal) / @pTerm) / 5.0) * 5        
-        END;      
+        END;       
     
+    IF @pAccttype <> 461 
     SET @pIntratePerWeek = dbo.fn_rate(@pTerm, -@pAmort, @pPrincipal);        
-    
+    ELSE 
+    SET @pIntratePerWeek = 0.009249743
+
+
     WHILE @dnum <= @pTerm        
     BEGIN        
         -- Compute next due date
@@ -80,7 +85,7 @@ BEGIN
     
         SET @Intr =        
             CASE        
-                WHEN @pAccttype = 344 THEN ROUND(@EndBalPrin * @pIntratePerWeek, 2)        
+                WHEN @pAccttype = 344 THEN ROUND(@EndBalPrin * @pIntratePerWeek, 2)
                 ELSE ROUND(@EndBalPrin * @pIntratePerWeek, 0)        
             END;      
     
