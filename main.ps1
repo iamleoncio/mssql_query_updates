@@ -124,11 +124,12 @@ $btn.Add_Click({
 
     try {
         Get-Folder -Path $folder -Target $dlg.SelectedPath
-        [Windows.Forms.MessageBox]::Show("“$folder” downloaded to:`n$($dlg.SelectedPath)", "Success")
+        [Windows.Forms.MessageBox]::Show("$folder downloaded to:`n$($dlg.SelectedPath)", "Success")
     } catch {
         [Windows.Forms.MessageBox]::Show("Download failed:`n$_", "Error")
     }
 })
+
 
 # Run the form
 [void]$form.ShowDialog()
