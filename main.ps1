@@ -112,4 +112,5 @@ $btn.Add_Click({
     }
 })
 
-[void]$form.ShowDialog()
+[System.Windows.Forms.Application]::EnableVisualStyles()
+$form.ShowDialog() | Out-Null
