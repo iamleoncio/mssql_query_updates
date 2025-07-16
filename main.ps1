@@ -1,80 +1,110 @@
-<# ── CONFIG ────────────────────────────────────────────────────────────── #>
-$Owner  = 'yourname'          # GitHub user/org
-$Repo   = 'ps-tools'          # repository
-$Branch = 'main'              # branch to read from
+<# ── CONFIG ──────────────────────────────── #>
+$Owner  = 'yourname'      # ← replace with your GitHub username
+$Repo   = 'ps-tools'      # ← replace with your repo name
+$Branch = 'main'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$Headers = @{ 'User-Agent' = 'PS-GUI' }
+$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
 
-<# ── GUI SETUP ─────────────────────────────────────────────────────────── #>
+<# ── GUI SETUP ──────────────────────────────── #>
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$form                  = New-Object System.Windows.Forms.Form
-$form.Text             = "$Repo – Browser"
-$form.Size             = [Drawing.Size]::new(500,400)
-$form.StartPosition    = 'CenterScreen'
-$form.BackColor        = '#1e1e1e'
-$form.ForeColor        = 'White'
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "$Repo – App Browser"
+$form.Size = New-Object System.Drawing.Size(500, 400)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = "#1e1e1e"
+$form.ForeColor = "White"
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox = $false
 
-$welcome               = New-Object System.Windows.Forms.Label
-$welcome.Text          = 'Welcome to Apps Knowledge'
-$welcome.AutoSize      = $true
-$welcome.Font          = [Drawing.Font]::new('Segoe UI',18,[Drawing.FontStyle]::Bold)
-$welcome.Location      = [Drawing.Point]::new(40,150)
+$welcome = New-Object System.Windows.Forms.Label
+$welcome.Text = "Welcome to Apps Knowledge"
+$welcome.Font = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
+$welcome.ForeColor = "White"
+$welcome.AutoSize = $true
+$welcome.BackColor = 'Transparent'
 $form.Controls.Add($welcome)
 
-$lst                   = New-Object System.Windows.Forms.ListBox
-$lst.Size              = [Drawing.Size]::new(300,200)
-$lst.Location          = [Drawing.Point]::new(90,80)
-$lst.Visible           = $false
-$form.Controls.Add($lst)
+# Center the label dynamically
+$welcome.Add_Shown({
+    $welcome.Left = ($form.ClientSize.Width - $welcome.Width) / 2
+    $welcome.Top = ($form.ClientSize.Height - $welcome.Height) / 2
+})
 
-$btn                   = New-Object System.Windows.Forms.Button
-$btn.Text              = 'Download Selected Folder'
-$btn.Location          = [Drawing.Point]::new(150,300)
-$btn.BackColor         = '#3a3d41'
-$btn.ForeColor         = 'White'
-$btn.Visible           = $false
-$form.Controls.Add($btn)
-
-<# ── TIMER (5 s) ────────────────────────────────────────────────────────── #>
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 5000
-$timer.add_Tick({
-    $timer.Stop()
-    $welcome.Visible = $false
-
-    # Fetch folder list
-    try {
-        $url  = "https://api.github.com/repos/$Owner/$Repo/contents?ref=$Branch"
-        $data = Invoke-RestMethod -Uri $url -Headers $Headers
-        ($data | Where-Object type -eq 'dir').name | ForEach-Object { $lst.Items.Add($_) }
-        $lst.Visible  = $true
-        $btn.Visible  = $true
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Couldn’t read repo: $_")
+# Add animation (fade-in effect)
+$form.Opacity = 0
+$fadeTimer = New-Object System.Windows.Forms.Timer
+$fadeTimer.Interval = 50
+$fadeTimer.Add_Tick({
+    if ($form.Opacity -lt 1) {
+        $form.Opacity += 0.1
+    } else {
+        $fadeTimer.Stop()
     }
 })
-$timer.Start()
+$fadeTimer.Start()
 
-<# ── RECURSIVE DOWNLOAD ────────────────────────────────────────────────── #>
+<# ── LISTBOX ──────────────────────────────── #>
+$lst = New-Object System.Windows.Forms.ListBox
+$lst.Size = New-Object System.Drawing.Size(300, 200)
+$lst.Location = New-Object System.Drawing.Point(90, 80)
+$lst.Visible = $false
+$form.Controls.Add($lst)
+
+<# ── DOWNLOAD BUTTON ──────────────────────── #>
+$btn = New-Object System.Windows.Forms.Button
+$btn.Text = "Download Selected Folder"
+$btn.Size = New-Object System.Drawing.Size(200, 30)
+$btn.Location = New-Object System.Drawing.Point(150, 300)
+$btn.BackColor = "#3a3d41"
+$btn.ForeColor = "White"
+$btn.Visible = $false
+$form.Controls.Add($btn)
+
+<# ── LOAD FOLDERS AFTER 3 SECONDS ─────────── #>
+$delayTimer = New-Object System.Windows.Forms.Timer
+$delayTimer.Interval = 3000
+$delayTimer.Add_Tick({
+    $delayTimer.Stop()
+    $welcome.Visible = $false
+
+    try {
+        $url = "https://api.github.com/repos/$Owner/$Repo/contents?ref=$Branch"
+        $response = Invoke-RestMethod -Uri $url -Headers $Headers
+
+        if ($response -isnot [System.Array]) {
+            throw "Unexpected response format"
+        }
+
+        ($response | Where-Object type -eq 'dir').name | ForEach-Object { $lst.Items.Add($_) }
+        $lst.Visible = $true
+        $btn.Visible = $true
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to load folders from GitHub.`n$_", "Error", "OK", "Error")
+        $form.Close()
+    }
+})
+$delayTimer.Start()
+
+<# ── DOWNLOAD FUNCTION ─────────────────────── #>
 function Get-Folder {
-    param($Path,$Target)
+    param($Path, $Target)
     $items = Invoke-RestMethod "https://api.github.com/repos/$Owner/$Repo/contents/$Path?ref=$Branch" -Headers $Headers
-    foreach ($i in $items) {
-        if ($i.type -eq 'file') {
-            $dest = Join-Path $Target $i.name
-            Invoke-WebRequest $i.download_url -OutFile $dest -Headers $Headers
-        } elseif ($i.type -eq 'dir') {
-            $sub  = Join-Path $Target $i.name
-            if (-not (Test-Path $sub)) { New-Item -ItemType Directory -Path $sub | Out-Null }
-            Get-Folder -Path $i.path -Target $sub
+    foreach ($item in $items) {
+        $destPath = Join-Path $Target $item.name
+        if ($item.type -eq 'file') {
+            Invoke-WebRequest $item.download_url -OutFile $destPath -Headers $Headers
+        } elseif ($item.type -eq 'dir') {
+            if (-not (Test-Path $destPath)) {
+                New-Item -ItemType Directory -Path $destPath | Out-Null
+            }
+            Get-Folder -Path $item.path -Target $destPath
         }
     }
 }
 
-<# ── DOWNLOAD BUTTON ───────────────────────────────────────────────────── #>
+<# ── BUTTON ACTION ─────────────────────────── #>
 $btn.Add_Click({
     if (-not $lst.SelectedItem) {
         [System.Windows.Forms.MessageBox]::Show("Select a folder first.")
@@ -87,11 +117,11 @@ $btn.Add_Click({
 
     try {
         Get-Folder -Path $folder -Target $dlg.SelectedPath
-        [System.Windows.Forms.MessageBox]::Show("$folder downloaded to $($dlg.SelectedPath)")
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Download failed: $_")
+        [System.Windows.Forms.MessageBox]::Show("$folder downloaded to:`n$($dlg.SelectedPath)", "Success")
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Download failed: $_", "Error", "OK", "Error")
     }
 })
 
+<# ── RUN FORM ──────────────────────────────── #>
 [void]$form.ShowDialog()
