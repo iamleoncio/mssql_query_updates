@@ -1,18 +1,15 @@
-<# ── CONFIG ────────────────────────────────────────────────────────── #>
-$Owner  = 'iamleoncio'
-$Repo   = 'mssql_query_updates'
+<# CONFIG #>
+$Owner = 'iamleoncio'
+$Repo = 'mssql_query_updates'
 $Branch = 'main'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$Headers = @{ 'User-Agent' = 'PowerShell-GUI-App' }
 
-# PAT – keep this private
-$Token = 'ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXX'           # ← put your token here
-$Headers = @{
-    'User-Agent'    = 'PowerShell-GUI-App'
-    'Authorization' = "Bearer $Token"
-}
+# If repo is private, add token like:
+# $Headers['Authorization'] = 'Bearer YOUR_PAT'
 
-<# ── GITHUB HELPERS ────────────────────────────────────────────────── #>
-function Encode-Path ($Path) {
+# Util: encode path safely
+function Encode-Path($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
 }
 
@@ -35,7 +32,7 @@ function Get-Folder ($Path, $Target) {
     }
 }
 
-<# ── GUI SETUP ──────────────────────────────────────────────────────── #>
+# GUI Setup
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -60,8 +57,8 @@ $form.Add_Shown({
     $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
 })
 
-# Fade‑in
-$form.Opacity = 0
+# Fade-in effect
+$form.Opacity = 0.0
 $fade = New-Object Windows.Forms.Timer
 $fade.Interval = 50
 $fade.Add_Tick({ if ($form.Opacity -lt 1) { $form.Opacity += 0.1 } else { $fade.Stop() } })
@@ -84,11 +81,11 @@ $btn.ForeColor  = 'White'
 $btn.Visible    = $false
 $form.Controls.Add($btn)
 
-# Populate list after 3 s
-$delay = New-Object Windows.Forms.Timer
-$delay.Interval = 3000
-$delay.Add_Tick({
-    $delay.Stop()
+# Load folders after 3 seconds
+$loadTimer = New-Object Windows.Forms.Timer
+$loadTimer.Interval = 3000
+$loadTimer.Add_Tick({
+    $loadTimer.Stop()
     $label.Visible = $false
     try {
         $dirs = Get-GitHubContent | Where-Object type -eq 'dir'
@@ -102,7 +99,7 @@ $delay.Add_Tick({
 })
 $delay.Start()
 
-# Button logic
+# Download button click
 $btn.Add_Click({
     if (-not $list.SelectedItem) {
         [Windows.Forms.MessageBox]::Show('Select a folder first.')
