@@ -1,3 +1,6 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 <# ── CONFIG ────────────────────────────────────────────────────────── #>
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
