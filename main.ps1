@@ -11,12 +11,12 @@ $Headers = @{
     'Authorization' = "Bearer $Token"
 }
 
-function Encode-Path($Path) {
+function Convert-PathToUri($Path) {
     ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
 }
 
 function Get-GitHubContent($Path = '') {
-    $encoded = if ($Path) { '/' + (Encode-Path $Path) } else { '' }
+    $encoded = if ($Path) { '/' + (Convert-PathToUri $Path) } else { '' }
     $url = "https://api.github.com/repos/$Owner/$Repo/contents$encoded?ref=$Branch"
     Invoke-RestMethod -Uri $url -Headers $Headers
 }
