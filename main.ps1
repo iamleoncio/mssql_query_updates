@@ -9,6 +9,7 @@ $Token = $env:GITHUB_TOKEN
 if (-not $Token) {
     [System.Windows.Forms.MessageBox]::Show("GitHub token is missing. Set the GITHUB_TOKEN environment variable.", "Error")
     exit
+    }
 $Headers = @{
     'User-Agent'    = 'PowerShell-GUI-App'
     'Authorization' = "Bearer $Token"
