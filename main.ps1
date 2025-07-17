@@ -65,7 +65,7 @@ function Get-GitHubFileList {
             }
         }
         
-        if ($ProgressBar -and $StatusBar) {
+        if ($ProgressBar) {
             $StatusBar.Text = "Discovering files... ($($allFiles.Count) found)"
             $ProgressBar.Value = [Math]::Min($ProgressBar.Value + 1, $ProgressBar.Maximum)
             [System.Windows.Forms.Application]::DoEvents()
@@ -112,61 +112,43 @@ $repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
 $repoLabel.ForeColor = 'Silver'
 $titlePanel.Controls.Add($repoLabel)
 
-# Welcome Panel
-$welcomePanel = New-Object System.Windows.Forms.Panel
-$welcomePanel.Size = New-Object System.Drawing.Size(800, 570)
-$welcomePanel.Location = New-Object System.Drawing.Point(0, 80)
-$welcomePanel.BackColor = '#1e1e1e'
-$form.Controls.Add($welcomePanel)
+# Main Panel
+$mainPanel = New-Object System.Windows.Forms.Panel
+$mainPanel.Size = New-Object System.Drawing.Size(800, 570)
+$mainPanel.Location = New-Object System.Drawing.Point(0, 80)
+$mainPanel.BackColor = '#1e1e1e'
+$form.Controls.Add($mainPanel)
 
 # Welcome Label
 $welcomeLabel = New-Object System.Windows.Forms.Label
 $welcomeLabel.Text      = "Welcome to AppsKnowledge"
 $welcomeLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 24, [System.Drawing.FontStyle]::Bold)
 $welcomeLabel.AutoSize  = $true
-$welcomeLabel.Location  = New-Object System.Drawing.Point(200, 200)
+$welcomeLabel.Location  = New-Object System.Drawing.Point(200, 50)
 $welcomeLabel.ForeColor = 'White'
 $welcomeLabel.BackColor = 'Transparent'
-$welcomePanel.Controls.Add($welcomeLabel)
-
-# Loading Label
-$loadingLabel = New-Object System.Windows.Forms.Label
-$loadingLabel.Text      = "Loading repository content..."
-$loadingLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
-$loadingLabel.AutoSize  = $true
-$loadingLabel.Location  = New-Object System.Drawing.Point(280, 280)
-$loadingLabel.ForeColor = 'Silver'
-$loadingLabel.BackColor = 'Transparent'
-$welcomePanel.Controls.Add($loadingLabel)
-
-# Main Panel (initially hidden)
-$mainPanel = New-Object System.Windows.Forms.Panel
-$mainPanel.Size = New-Object System.Drawing.Size(800, 570)
-$mainPanel.Location = New-Object System.Drawing.Point(0, 80)
-$mainPanel.BackColor = '#1e1e1e'
-$mainPanel.Visible = $false
-$form.Controls.Add($mainPanel)
+$mainPanel.Controls.Add($welcomeLabel)
 
 # Folder ListView
 $listView = New-Object System.Windows.Forms.ListView
 $listView.View       = 'Details'
 $listView.Size       = New-Object System.Drawing.Size(750, 350)
-$listView.Location   = New-Object System.Drawing.Point(25, 20)
+$listView.Location   = New-Object System.Drawing.Point(25, 150)
 $listView.FullRowSelect = $true
 $listView.MultiSelect   = $true
 $listView.BackColor     = '#252526'
 $listView.ForeColor     = 'White'
 $listView.Font          = New-Object System.Drawing.Font("Segoe UI", 11)
 $listView.BorderStyle   = 'FixedSingle'
-$listView.SmallImageList = New-Object System.Windows.Forms.ImageList
-$listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
 
 # Add folder icon
 try {
+    $listView.SmallImageList = New-Object System.Windows.Forms.ImageList
+    $listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
     $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
     $listView.SmallImageList.Images.Add($folderIcon)
 } catch {
-    # Use default icon if extraction fails
+    # Continue without icons if extraction fails
 }
 
 $listView.Columns.Add("Folders", 700) | Out-Null
@@ -184,7 +166,7 @@ $mainPanel.Controls.Add($statusBar)
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Size      = New-Object System.Drawing.Size(750, 25)
-$progressBar.Location  = New-Object System.Drawing.Point(25, 380)
+$progressBar.Location  = New-Object System.Drawing.Point(25, 510)
 $progressBar.Style     = 'Marquee'
 $progressBar.Visible   = $false
 $mainPanel.Controls.Add($progressBar)
@@ -192,7 +174,7 @@ $mainPanel.Controls.Add($progressBar)
 # Button Panel
 $buttonPanel = New-Object System.Windows.Forms.Panel
 $buttonPanel.Size = New-Object System.Drawing.Size(750, 50)
-$buttonPanel.Location = New-Object System.Drawing.Point(25, 420)
+$buttonPanel.Location = New-Object System.Drawing.Point(25, 550)
 $buttonPanel.BackColor = 'Transparent'
 $mainPanel.Controls.Add($buttonPanel)
 
@@ -254,7 +236,9 @@ $loadFolders = {
         foreach ($dir in $dirs) {
             $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
             $item.Tag = $dir.path
-            $item.ImageIndex = 0
+            if ($listView.SmallImageList -ne $null) {
+                $item.ImageIndex = 0
+            }
             $listView.Items.Add($item) | Out-Null
         }
         $listView.EndUpdate()
@@ -340,7 +324,9 @@ $btnDownload.Add_Click({
                 $statusBar.Text = "Downloading file $counter/$totalFiles - $($file.RelativePath)"
                 $form.Refresh()
 
-                $localPath = Join-Path $dlg.SelectedPath $folder $file.RelativePath
+                # FIX: Use proper path combining
+                $basePath = Join-Path -Path $dlg.SelectedPath -ChildPath $folder
+                $localPath = Join-Path -Path $basePath -ChildPath $file.RelativePath
                 $dirPath = [System.IO.Path]::GetDirectoryName($localPath)
                 
                 if (-not (Test-Path $dirPath)) {
@@ -389,33 +375,11 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Form shown event
+# Load folders after form shows
 $form.Add_Shown({
-    try {
-        # Show welcome screen briefly
-        $form.Refresh()
-        Start-Sleep -Milliseconds 1000
-        
-        # Load folders
-        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-        & $loadFolders
-        
-        # Switch to main panel
-        $welcomePanel.Visible = $false
-        $mainPanel.Visible = $true
-    } catch {
-        $welcomePanel.Visible = $false
-        $mainPanel.Visible = $true
-        [System.Windows.Forms.MessageBox]::Show(
-            "GitHub API Error:`n$($_.Exception.Message)",
-            'Connection Failed',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        $statusBar.Text = "Error: $($_.Exception.Message)"
-    } finally {
-        $form.Cursor = [System.Windows.Forms.Cursors]::Default
-    }
+    $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+    & $loadFolders
+    $form.Cursor = [System.Windows.Forms.Cursors]::Default
 })
 
 # Handle form closing
