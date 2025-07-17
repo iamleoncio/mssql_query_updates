@@ -65,7 +65,7 @@ function Get-GitHubFileList {
             }
         }
         
-        if ($ProgressBar -and $StatusBar) {
+        if ($ProgressBar) {
             $StatusBar.Text = "Discovering files... ($($allFiles.Count) found)"
             $ProgressBar.Value = [Math]::Min($ProgressBar.Value + 1, $ProgressBar.Maximum)
             [System.Windows.Forms.Application]::DoEvents()
@@ -78,9 +78,12 @@ function Get-GitHubFileList {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Load folder icon
+$folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
+
 # Main Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = "AppsKnowledge - GitHub Repository Browser"
+$form.Text            = "$Repo Browser"
 $form.Size            = '800,650'
 $form.StartPosition   = 'CenterScreen'
 $form.BackColor       = '#1e1e1e'
@@ -98,7 +101,7 @@ $form.Controls.Add($titlePanel)
 # Title Label
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text      = "GitHub Repository Browser"
-$titleLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+$titleLabel.Font      = 'Segoe UI,16,style=Bold'
 $titleLabel.AutoSize  = $true
 $titleLabel.Location  = New-Object System.Drawing.Point(20, 15)
 $titlePanel.Controls.Add($titleLabel)
@@ -106,7 +109,7 @@ $titlePanel.Controls.Add($titleLabel)
 # Repo Info
 $repoLabel = New-Object System.Windows.Forms.Label
 $repoLabel.Text      = "$Owner/$Repo : $Branch"
-$repoLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 10)
+$repoLabel.Font      = 'Segoe UI,10'
 $repoLabel.AutoSize  = $true
 $repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
 $repoLabel.ForeColor = 'Silver'
@@ -114,15 +117,15 @@ $titlePanel.Controls.Add($repoLabel)
 
 # Welcome Panel
 $welcomePanel = New-Object System.Windows.Forms.Panel
-$welcomePanel.Size = New-Object System.Drawing.Size(800, 570)
-$welcomePanel.Location = New-Object System.Drawing.Point(0, 80)
+$welcomePanel.Size = New-Object System.Drawing.Size(800, 650)
 $welcomePanel.BackColor = '#1e1e1e'
+$welcomePanel.Dock = 'Fill'
 $form.Controls.Add($welcomePanel)
 
 # Welcome Label
 $welcomeLabel = New-Object System.Windows.Forms.Label
 $welcomeLabel.Text      = "Welcome to AppsKnowledge"
-$welcomeLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 24, [System.Drawing.FontStyle]::Bold)
+$welcomeLabel.Font      = 'Segoe UI,24,style=Bold'
 $welcomeLabel.AutoSize  = $true
 $welcomeLabel.Location  = New-Object System.Drawing.Point(200, 200)
 $welcomeLabel.ForeColor = 'White'
@@ -131,10 +134,10 @@ $welcomePanel.Controls.Add($welcomeLabel)
 
 # Loading Label
 $loadingLabel = New-Object System.Windows.Forms.Label
-$loadingLabel.Text      = "Loading repository content..."
-$loadingLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
+$loadingLabel.Text      = "Loading repository..."
+$loadingLabel.Font      = 'Segoe UI,12'
 $loadingLabel.AutoSize  = $true
-$loadingLabel.Location  = New-Object System.Drawing.Point(280, 280)
+$loadingLabel.Location  = New-Object System.Drawing.Point(300, 280)
 $loadingLabel.ForeColor = 'Silver'
 $loadingLabel.BackColor = 'Transparent'
 $welcomePanel.Controls.Add($loadingLabel)
@@ -156,19 +159,11 @@ $listView.FullRowSelect = $true
 $listView.MultiSelect   = $true
 $listView.BackColor     = '#252526'
 $listView.ForeColor     = 'White'
-$listView.Font          = New-Object System.Drawing.Font("Segoe UI", 11)
+$listView.Font          = 'Segoe UI,11'
 $listView.BorderStyle   = 'FixedSingle'
 $listView.SmallImageList = New-Object System.Windows.Forms.ImageList
 $listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
-
-# Add folder icon
-try {
-    $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
-    $listView.SmallImageList.Images.Add($folderIcon)
-} catch {
-    # Use default icon if extraction fails
-}
-
+$listView.SmallImageList.Images.Add($folderIcon)
 $listView.Columns.Add("Folders", 700) | Out-Null
 $mainPanel.Controls.Add($listView)
 
@@ -206,7 +201,7 @@ $btnDownload.ForeColor  = 'White'
 $btnDownload.Enabled    = $false
 $btnDownload.FlatStyle  = 'Flat'
 $btnDownload.FlatAppearance.BorderSize = 0
-$btnDownload.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$btnDownload.Font = 'Segoe UI,10,style=Bold'
 $buttonPanel.Controls.Add($btnDownload)
 
 # GitHub Link Button
@@ -218,7 +213,7 @@ $btnGitHub.BackColor  = '#4078c0'
 $btnGitHub.ForeColor  = 'White'
 $btnGitHub.FlatStyle  = 'Flat'
 $btnGitHub.FlatAppearance.BorderSize = 0
-$btnGitHub.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$btnGitHub.Font = 'Segoe UI,10'
 $buttonPanel.Controls.Add($btnGitHub)
 
 # Refresh Button
@@ -230,7 +225,7 @@ $btnRefresh.BackColor  = '#3a3d41'
 $btnRefresh.ForeColor  = 'White'
 $btnRefresh.FlatStyle  = 'Flat'
 $btnRefresh.FlatAppearance.BorderSize = 0
-$btnRefresh.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$btnRefresh.Font = 'Segoe UI,10'
 $buttonPanel.Controls.Add($btnRefresh)
 
 # Populate folder list
@@ -389,33 +384,48 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Form shown event
-$form.Add_Shown({
-    try {
-        # Show welcome screen briefly
-        $form.Refresh()
-        Start-Sleep -Milliseconds 1000
-        
-        # Load folders
-        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-        & $loadFolders
-        
-        # Switch to main panel
-        $welcomePanel.Visible = $false
-        $mainPanel.Visible = $true
-    } catch {
-        $welcomePanel.Visible = $false
-        $mainPanel.Visible = $true
-        [System.Windows.Forms.MessageBox]::Show(
-            "GitHub API Error:`n$($_.Exception.Message)",
-            'Connection Failed',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        $statusBar.Text = "Error: $($_.Exception.Message)"
-    } finally {
-        $form.Cursor = [System.Windows.Forms.Cursors]::Default
+# Animation timer
+$animTimer = New-Object System.Windows.Forms.Timer
+$animTimer.Interval = 50
+$animCounter = 0
+$animTimer.Add_Tick({
+    $animCounter++
+    
+    # Welcome text animation
+    if ($animCounter -lt 30) {
+        $welcomeLabel.Font = New-Object System.Drawing.Font("Segoe UI", 18 + $animCounter, [System.Drawing.FontStyle]::Bold)
+        $welcomeLabel.Left = ($welcomePanel.Width - $welcomeLabel.Width) / 2
+        $welcomeLabel.Top = ($welcomePanel.Height - $welcomeLabel.Height) / 2 - 50
     }
+    
+    # Fade out welcome screen
+    if ($animCounter -eq 40) {
+        $animTimer.Stop()
+        
+        # Start fade out animation
+        $fadeTimer = New-Object System.Windows.Forms.Timer
+        $fadeTimer.Interval = 30
+        $fadeCounter = 0
+        $fadeTimer.Add_Tick({
+            $fadeCounter++
+            $welcomePanel.Opacity = 1 - ($fadeCounter * 0.05)
+            
+            if ($fadeCounter -ge 20) {
+                $fadeTimer.Stop()
+                $welcomePanel.Visible = $false
+                $mainPanel.Visible = $true
+                $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+                & $loadFolders
+                $form.Cursor = [System.Windows.Forms.Cursors]::Default
+            }
+        })
+        $fadeTimer.Start()
+    }
+})
+
+# Load folders after form shows
+$form.Add_Shown({
+    $animTimer.Start()
 })
 
 # Handle form closing
