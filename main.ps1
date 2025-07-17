@@ -78,12 +78,9 @@ function Get-GitHubFileList {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Load folder icon
-$folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
-
 # Main Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = "$Repo Browser"
+$form.Text            = "AppsKnowledge - GitHub Repository Browser"
 $form.Size            = '800,650'
 $form.StartPosition   = 'CenterScreen'
 $form.BackColor       = '#1e1e1e'
@@ -101,7 +98,7 @@ $form.Controls.Add($titlePanel)
 # Title Label
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text      = "GitHub Repository Browser"
-$titleLabel.Font      = 'Segoe UI,16,style=Bold'
+$titleLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
 $titleLabel.AutoSize  = $true
 $titleLabel.Location  = New-Object System.Drawing.Point(20, 15)
 $titlePanel.Controls.Add($titleLabel)
@@ -109,23 +106,23 @@ $titlePanel.Controls.Add($titleLabel)
 # Repo Info
 $repoLabel = New-Object System.Windows.Forms.Label
 $repoLabel.Text      = "$Owner/$Repo : $Branch"
-$repoLabel.Font      = 'Segoe UI,10'
+$repoLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 10)
 $repoLabel.AutoSize  = $true
-$repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
+$repoLabel.Location  = New-Object System.Drawing.Point(20, 50)
 $repoLabel.ForeColor = 'Silver'
 $titlePanel.Controls.Add($repoLabel)
 
 # Welcome Panel
 $welcomePanel = New-Object System.Windows.Forms.Panel
-$welcomePanel.Size = New-Object System.Drawing.Size(800, 650)
+$welcomePanel.Size = New-Object System.Drawing.Size(800, 570)
+$welcomePanel.Location = New-Object System.Drawing.Point(0, 80)
 $welcomePanel.BackColor = '#1e1e1e'
-$welcomePanel.Dock = 'Fill'
 $form.Controls.Add($welcomePanel)
 
 # Welcome Label
 $welcomeLabel = New-Object System.Windows.Forms.Label
 $welcomeLabel.Text      = "Welcome to AppsKnowledge"
-$welcomeLabel.Font      = 'Segoe UI,24,style=Bold'
+$welcomeLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 24, [System.Drawing.FontStyle]::Bold)
 $welcomeLabel.AutoSize  = $true
 $welcomeLabel.Location  = New-Object System.Drawing.Point(200, 200)
 $welcomeLabel.ForeColor = 'White'
@@ -134,20 +131,20 @@ $welcomePanel.Controls.Add($welcomeLabel)
 
 # Loading Label
 $loadingLabel = New-Object System.Windows.Forms.Label
-$loadingLabel.Text      = "Loading repository..."
-$loadingLabel.Font      = 'Segoe UI,12'
+$loadingLabel.Text      = "Loading repository content..."
+$loadingLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
 $loadingLabel.AutoSize  = $true
-$loadingLabel.Location  = New-Object System.Drawing.Point(300, 280)
+$loadingLabel.Location  = New-Object System.Drawing.Point(280, 280)
 $loadingLabel.ForeColor = 'Silver'
 $loadingLabel.BackColor = 'Transparent'
 $welcomePanel.Controls.Add($loadingLabel)
 
-# Loading Animation
+# Loading Animation (simple dots)
 $loadingDots = New-Object System.Windows.Forms.Label
 $loadingDots.Text      = ""
-$loadingDots.Font      = 'Segoe UI,12'
+$loadingDots.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
 $loadingDots.AutoSize  = $true
-$loadingDots.Location  = New-Object System.Drawing.Point(300, 310)
+$loadingDots.Location  = New-Object System.Drawing.Point(280, 310)
 $loadingDots.ForeColor = 'Silver'
 $loadingDots.BackColor = 'Transparent'
 $welcomePanel.Controls.Add($loadingDots)
@@ -169,11 +166,19 @@ $listView.FullRowSelect = $true
 $listView.MultiSelect   = $true
 $listView.BackColor     = '#252526'
 $listView.ForeColor     = 'White'
-$listView.Font          = 'Segoe UI,11'
+$listView.Font          = New-Object System.Drawing.Font("Segoe UI", 11)
 $listView.BorderStyle   = 'FixedSingle'
 $listView.SmallImageList = New-Object System.Windows.Forms.ImageList
 $listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
-$listView.SmallImageList.Images.Add($folderIcon)
+
+# Add folder icon
+try {
+    $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
+    $listView.SmallImageList.Images.Add($folderIcon)
+} catch {
+    # Use default icon if extraction fails
+}
+
 $listView.Columns.Add("Folders", 700) | Out-Null
 $mainPanel.Controls.Add($listView)
 
@@ -211,7 +216,7 @@ $btnDownload.ForeColor  = 'White'
 $btnDownload.Enabled    = $false
 $btnDownload.FlatStyle  = 'Flat'
 $btnDownload.FlatAppearance.BorderSize = 0
-$btnDownload.Font = 'Segoe UI,10,style=Bold'
+$btnDownload.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $buttonPanel.Controls.Add($btnDownload)
 
 # GitHub Link Button
@@ -223,7 +228,7 @@ $btnGitHub.BackColor  = '#4078c0'
 $btnGitHub.ForeColor  = 'White'
 $btnGitHub.FlatStyle  = 'Flat'
 $btnGitHub.FlatAppearance.BorderSize = 0
-$btnGitHub.Font = 'Segoe UI,10'
+$btnGitHub.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 $buttonPanel.Controls.Add($btnGitHub)
 
 # Refresh Button
@@ -235,7 +240,7 @@ $btnRefresh.BackColor  = '#3a3d41'
 $btnRefresh.ForeColor  = 'White'
 $btnRefresh.FlatStyle  = 'Flat'
 $btnRefresh.FlatAppearance.BorderSize = 0
-$btnRefresh.Font = 'Segoe UI,10'
+$btnRefresh.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 $buttonPanel.Controls.Add($btnRefresh)
 
 # Populate folder list
@@ -317,7 +322,7 @@ $btnDownload.Add_Click({
         # First pass: Count total files
         foreach ($item in $foldersToDownload) {
             $path = $item.Tag
-            $files = Get-GitHubFileList -Path $path -ProgressBar $progressBar -StatusBar $statusBar
+            $files = Get-GitHubFileList -Path $path -ProgressBar $null -StatusBar $statusBar
             $totalFiles += $files.Count
         }
         
@@ -394,7 +399,7 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Animation timer for loading dots
+# Simple dot animation timer
 $dotTimer = New-Object System.Windows.Forms.Timer
 $dotTimer.Interval = 500
 $dotState = 0
@@ -403,96 +408,47 @@ $dotTimer.Add_Tick({
     $loadingDots.Text = "." * $dotState
 })
 
-# Fade-in animation for welcome screen
-$fadeInTimer = New-Object System.Windows.Forms.Timer
-$fadeInTimer.Interval = 50
-$fadeInCounter = 0
-$fadeInTimer.Add_Tick({
-    $fadeInCounter++
-    $welcomePanel.Opacity = $fadeInCounter * 0.05
+# Form shown event
+$form.Add_Shown({
+    # Start dot animation
+    $dotTimer.Start()
     
-    if ($fadeInCounter -ge 20) {
-        $fadeInTimer.Stop()
-        $dotTimer.Start()
-        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+    # Start loading folders
+    $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+    try {
+        $content = Get-GitHubContent
+        $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         
-        # Start loading folders in background
-        $bgJob = {
-            try {
-                $content = Get-GitHubContent
-                $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
-                return $dirs
-            } catch {
-                return $null, $_.Exception.Message
+        if ($dirs) {
+            $listView.BeginUpdate()
+            foreach ($dir in $dirs) {
+                $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
+                $item.Tag = $dir.path
+                $item.ImageIndex = 0
+                $listView.Items.Add($item) | Out-Null
             }
+            $listView.EndUpdate()
+            $btnDownload.Enabled = $true
         }
         
-        $job = Start-Job -ScriptBlock $bgJob
-        
-        # Check job status
-        $checkJobTimer = New-Object System.Windows.Forms.Timer
-        $checkJobTimer.Interval = 100
-        $checkJobTimer.Add_Tick({
-            if ($job.State -eq 'Completed') {
-                $checkJobTimer.Stop()
-                $dotTimer.Stop()
-                $result = Receive-Job $job
-                Remove-Job $job
-                
-                if ($result -and $result[0] -is [array]) {
-                    $script:dirs = $result
-                } else {
-                    $errorMsg = $result[1]
-                }
-                
-                $form.Cursor = [System.Windows.Forms.Cursors]::Default
-                
-                # Start fade out animation
-                $fadeOutTimer = New-Object System.Windows.Forms.Timer
-                $fadeOutTimer.Interval = 30
-                $fadeOutCounter = 0
-                $fadeOutTimer.Add_Tick({
-                    $fadeOutCounter++
-                    $welcomePanel.Opacity = 1 - ($fadeOutCounter * 0.05)
-                    
-                    if ($fadeOutCounter -ge 20) {
-                        $fadeOutTimer.Stop()
-                        $welcomePanel.Visible = $false
-                        $mainPanel.Visible = $true
-                        
-                        if ($script:dirs) {
-                            $listView.BeginUpdate()
-                            $listView.Items.Clear()
-                            foreach ($dir in $script:dirs) {
-                                $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
-                                $item.Tag = $dir.path
-                                $item.ImageIndex = 0
-                                $listView.Items.Add($item) | Out-Null
-                            }
-                            $listView.EndUpdate()
-                            $statusBar.Text = "$($script:dirs.Count) folders found"
-                            $btnDownload.Enabled = $true
-                        } else {
-                            $statusBar.Text = "Error: $errorMsg"
-                            [System.Windows.Forms.MessageBox]::Show(
-                                "GitHub API Error:`n$errorMsg",
-                                'Connection Failed',
-                                [System.Windows.Forms.MessageBoxButtons]::OK,
-                                [System.Windows.Forms.MessageBoxIcon]::Error
-                            )
-                        }
-                    }
-                })
-                $fadeOutTimer.Start()
-            }
-        })
-        $checkJobTimer.Start()
+        # Switch to main panel
+        $welcomePanel.Visible = $false
+        $mainPanel.Visible = $true
+        $statusBar.Text = "$($dirs.Count) folders found"
+    } catch {
+        $welcomePanel.Visible = $false
+        $mainPanel.Visible = $true
+        [System.Windows.Forms.MessageBox]::Show(
+            "GitHub API Error:`n$($_.Exception.Message)",
+            'Connection Failed',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        $statusBar.Text = "Error: $($_.Exception.Message)"
+    } finally {
+        $dotTimer.Stop()
+        $form.Cursor = [System.Windows.Forms.Cursors]::Default
     }
-})
-
-# Load form
-$form.Add_Shown({
-    $fadeInTimer.Start()
 })
 
 # Handle form closing
