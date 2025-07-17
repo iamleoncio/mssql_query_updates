@@ -1,14 +1,17 @@
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
+# CONFIG
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
 $Branch = 'main'
+$Headers = @{ 'User-Agent' = 'PowerShellApp' }
 
-function Get-RepoContents($Path = '') {
-    $encodedPath = if ($Path) { '/' + [uri]::EscapeDataString($Path) } else { '' }
-    $url = "https://api.github.com/repos/$Owner/$Repo/contents$encodedPath?ref=$Branch"
-    Invoke-RestMethod -Uri $url -Headers @{ 'User-Agent' = 'PowerShell' }
+function Encode-Path ($Path) {
+    ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
+}
+
+function Get-GitHubContent ($Path = '') {
+    $enc = if ($Path) { '/' + (Encode-Path $Path) } else { '' }
+    $url = "https://api.github.com/repos/$Owner/$Repo/contents$enc?ref=$Branch"
+    Invoke-RestMethod -Uri $url -Headers $Headers
 }
 
 function Get-Folder ($Path, $Target) {
@@ -24,37 +27,44 @@ function Get-Folder ($Path, $Target) {
     }
 }
 
-<<<<<<< HEAD
-<# GUI ──────────────────────────────────────────── #>
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-$form = New-Object Windows.Forms.Form
-$form.Text = "$Repo Browser"
-=======
 # GUI Setup
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object Windows.Forms.Form
-$form.Text = "Repo Browser"
-$form.Size = '500,400'
-$form.StartPosition = 'CenterScreen'
-$form.BackColor = '#1e1e1e'
-$form.ForeColor = 'White'
+$form.Text            = "$Repo Browser"
+$form.Size            = '500,400'
+$form.StartPosition   = 'CenterScreen'
+$form.BackColor       = '#1e1e1e'
+$form.ForeColor       = 'White'
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox     = $false
 
+# Welcome label
 $label = New-Object Windows.Forms.Label
-$label.Text = 'Select a Folder to Download'
-$label.AutoSize = $true
-$label.Font = 'Segoe UI,14'
-$label.Top = 20
-$label.Left = 140
+$label.Text      = 'Welcome to Apps Knowledge'
+$label.Font      = 'Segoe UI,18,style=Bold'
+$label.AutoSize  = $true
+$label.BackColor = 'Transparent'
 $form.Controls.Add($label)
+$form.Add_Shown({ 
+    $label.Left = ($form.ClientSize.Width  - $label.Width)  / 2
+    $label.Top  = ($form.ClientSize.Height - $label.Height) / 2
+})
 
-$listBox = New-Object Windows.Forms.ListBox
-$listBox.Size = '400,200'
-$listBox.Location = '45,60'
-$form.Controls.Add($listBox)
+# Fade-in
+$form.Opacity = 0
+$fade = New-Object Windows.Forms.Timer
+$fade.Interval = 50
+$fade.Add_Tick({ if ($form.Opacity -lt 1) { $form.Opacity += 0.1 } else { $fade.Stop() } })
+$fade.Start()
+
+# Folder list
+$list = New-Object Windows.Forms.ListBox
+$list.Size      = '300,200'
+$list.Location  = '90,80'
+$list.Visible   = $false
+$form.Controls.Add($list)
 
 # Download button
 $btn = New-Object Windows.Forms.Button
@@ -66,6 +76,25 @@ $btn.ForeColor  = 'White'
 $btn.Visible    = $false
 $form.Controls.Add($btn)
 
+# Populate list after 3 seconds
+$delay = New-Object Windows.Forms.Timer
+$delay.Interval = 3000
+$delay.Add_Tick({
+    $delay.Stop()
+    $label.Visible = $false
+    try {
+        $dirs = Get-GitHubContent | Where-Object type -eq 'dir'
+        $dirs.name | ForEach-Object { $list.Items.Add($_) }
+        $list.Visible = $btn.Visible = $true
+    } catch {
+        $code = $_.Exception.Response.StatusCode.value__ 2>$null
+        [Windows.Forms.MessageBox]::Show("Error loading folders:`nHTTP $code`n$_",'GitHub Error')
+        $form.Close()
+    }
+})
+$delay.Start()
+
+# Button logic
 $btn.Add_Click({
     if (-not $list.SelectedItem) {
         [Windows.Forms.MessageBox]::Show('Select a folder first.')
