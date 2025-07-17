@@ -43,7 +43,7 @@ function Get-GitHubFileList {
     param(
         [string]$Path,
         [System.Windows.Forms.ProgressBar]$ProgressBar,
-        [System.Windows.Forms.Label]$StatusLabel
+        [System.Windows.Forms.StatusBar]$StatusBar
     )
     $allFiles = [System.Collections.Generic.List[object]]::new()
     $stack = [System.Collections.Stack]::new()
@@ -65,8 +65,8 @@ function Get-GitHubFileList {
             }
         }
         
-        if ($ProgressBar) {
-            $StatusLabel.Text = "Discovering files... ($($allFiles.Count) found)"
+        if ($ProgressBar -and $StatusBar) {
+            $StatusBar.Text = "Discovering files... ($($allFiles.Count) found)"
             $ProgressBar.Value = [Math]::Min($ProgressBar.Value + 1, $ProgressBar.Maximum)
             [System.Windows.Forms.Application]::DoEvents()
         }
@@ -80,8 +80,8 @@ Add-Type -AssemblyName System.Drawing
 
 # Main Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = "$Repo Browser"
-$form.Size            = '700,600'
+$form.Text            = "AppsKnowledge - GitHub Repository Browser"
+$form.Size            = '800,650'
 $form.StartPosition   = 'CenterScreen'
 $form.BackColor       = '#1e1e1e'
 $form.ForeColor       = 'White'
@@ -90,7 +90,7 @@ $form.MaximizeBox     = $false
 
 # Title Panel
 $titlePanel = New-Object System.Windows.Forms.Panel
-$titlePanel.Size = New-Object System.Drawing.Size(700, 70)
+$titlePanel.Size = New-Object System.Drawing.Size(800, 80)
 $titlePanel.BackColor = '#2d2d30'
 $titlePanel.Dock = 'Top'
 $form.Controls.Add($titlePanel)
@@ -98,32 +98,79 @@ $form.Controls.Add($titlePanel)
 # Title Label
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text      = "GitHub Repository Browser"
-$titleLabel.Font      = 'Segoe UI,16,style=Bold'
+$titleLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
 $titleLabel.AutoSize  = $true
-$titleLabel.Location  = New-Object System.Drawing.Point(20, 20)
+$titleLabel.Location  = New-Object System.Drawing.Point(20, 15)
 $titlePanel.Controls.Add($titleLabel)
 
 # Repo Info
 $repoLabel = New-Object System.Windows.Forms.Label
 $repoLabel.Text      = "$Owner/$Repo : $Branch"
-$repoLabel.Font      = 'Segoe UI,10'
+$repoLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 10)
 $repoLabel.AutoSize  = $true
 $repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
 $repoLabel.ForeColor = 'Silver'
 $titlePanel.Controls.Add($repoLabel)
 
+# Welcome Panel
+$welcomePanel = New-Object System.Windows.Forms.Panel
+$welcomePanel.Size = New-Object System.Drawing.Size(800, 570)
+$welcomePanel.Location = New-Object System.Drawing.Point(0, 80)
+$welcomePanel.BackColor = '#1e1e1e'
+$form.Controls.Add($welcomePanel)
+
+# Welcome Label
+$welcomeLabel = New-Object System.Windows.Forms.Label
+$welcomeLabel.Text      = "Welcome to AppsKnowledge"
+$welcomeLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 24, [System.Drawing.FontStyle]::Bold)
+$welcomeLabel.AutoSize  = $true
+$welcomeLabel.Location  = New-Object System.Drawing.Point(200, 200)
+$welcomeLabel.ForeColor = 'White'
+$welcomeLabel.BackColor = 'Transparent'
+$welcomePanel.Controls.Add($welcomeLabel)
+
+# Loading Label
+$loadingLabel = New-Object System.Windows.Forms.Label
+$loadingLabel.Text      = "Loading repository content..."
+$loadingLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
+$loadingLabel.AutoSize  = $true
+$loadingLabel.Location  = New-Object System.Drawing.Point(280, 280)
+$loadingLabel.ForeColor = 'Silver'
+$loadingLabel.BackColor = 'Transparent'
+$welcomePanel.Controls.Add($loadingLabel)
+
+# Main Panel (initially hidden)
+$mainPanel = New-Object System.Windows.Forms.Panel
+$mainPanel.Size = New-Object System.Drawing.Size(800, 570)
+$mainPanel.Location = New-Object System.Drawing.Point(0, 80)
+$mainPanel.BackColor = '#1e1e1e'
+$mainPanel.Visible = $false
+$form.Controls.Add($mainPanel)
+
 # Folder ListView
 $listView = New-Object System.Windows.Forms.ListView
 $listView.View       = 'Details'
-$listView.Size       = New-Object System.Drawing.Size(650, 350)
-$listView.Location   = New-Object System.Drawing.Point(25, 85)
+$listView.Size       = New-Object System.Drawing.Size(750, 350)
+$listView.Location   = New-Object System.Drawing.Point(25, 20)
 $listView.FullRowSelect = $true
-$listView.MultiSelect   = $false
+$listView.MultiSelect   = $true
 $listView.BackColor     = '#252526'
 $listView.ForeColor     = 'White'
+$listView.Font          = New-Object System.Drawing.Font("Segoe UI", 11)
 $listView.BorderStyle   = 'FixedSingle'
-$listView.Columns.Add("Folders", 630) | Out-Null
-$form.Controls.Add($listView)
+$listView.SmallImageList = New-Object System.Windows.Forms.ImageList
+$listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
+
+# Add folder icon
+try {
+    $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
+    $listView.SmallImageList.Images.Add($folderIcon)
+} catch {
+    # Use default icon if extraction fails
+}
+
+$listView.Columns.Add("Folders", 700) | Out-Null
+$mainPanel.Controls.Add($listView)
 
 # Status Bar
 $statusBar = New-Object System.Windows.Forms.StatusBar
@@ -132,52 +179,59 @@ $statusBar.BackColor = '#007acc'
 $statusBar.ForeColor = 'White'
 $statusBar.Height = 24
 $statusBar.Dock = 'Bottom'
-$form.Controls.Add($statusBar)
+$mainPanel.Controls.Add($statusBar)
 
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Size      = New-Object System.Drawing.Size(650, 25)
-$progressBar.Location  = New-Object System.Drawing.Point(25, 450)
+$progressBar.Size      = New-Object System.Drawing.Size(750, 25)
+$progressBar.Location  = New-Object System.Drawing.Point(25, 380)
 $progressBar.Style     = 'Marquee'
 $progressBar.Visible   = $false
-$form.Controls.Add($progressBar)
+$mainPanel.Controls.Add($progressBar)
+
+# Button Panel
+$buttonPanel = New-Object System.Windows.Forms.Panel
+$buttonPanel.Size = New-Object System.Drawing.Size(750, 50)
+$buttonPanel.Location = New-Object System.Drawing.Point(25, 420)
+$buttonPanel.BackColor = 'Transparent'
+$mainPanel.Controls.Add($buttonPanel)
 
 # Download Button
 $btnDownload = New-Object System.Windows.Forms.Button
-$btnDownload.Text       = 'Download Selected Folder'
+$btnDownload.Text       = 'Download Selected Folders'
 $btnDownload.Size       = New-Object System.Drawing.Size(250, 40)
-$btnDownload.Location   = New-Object System.Drawing.Point(50, 490)
+$btnDownload.Location   = New-Object System.Drawing.Point(50, 5)
 $btnDownload.BackColor  = '#3276b1'
 $btnDownload.ForeColor  = 'White'
 $btnDownload.Enabled    = $false
 $btnDownload.FlatStyle  = 'Flat'
 $btnDownload.FlatAppearance.BorderSize = 0
-$btnDownload.Font = 'Segoe UI,10,style=Bold'
-$form.Controls.Add($btnDownload)
+$btnDownload.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$buttonPanel.Controls.Add($btnDownload)
 
 # GitHub Link Button
 $btnGitHub = New-Object System.Windows.Forms.Button
 $btnGitHub.Text       = 'Open in GitHub'
 $btnGitHub.Size       = New-Object System.Drawing.Size(150, 40)
-$btnGitHub.Location   = New-Object System.Drawing.Point(320, 490)
+$btnGitHub.Location   = New-Object System.Drawing.Point(320, 5)
 $btnGitHub.BackColor  = '#4078c0'
 $btnGitHub.ForeColor  = 'White'
 $btnGitHub.FlatStyle  = 'Flat'
 $btnGitHub.FlatAppearance.BorderSize = 0
-$btnGitHub.Font = 'Segoe UI,10'
-$form.Controls.Add($btnGitHub)
+$btnGitHub.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$buttonPanel.Controls.Add($btnGitHub)
 
 # Refresh Button
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text       = 'Refresh'
 $btnRefresh.Size       = New-Object System.Drawing.Size(150, 40)
-$btnRefresh.Location   = New-Object System.Drawing.Point(490, 490)
+$btnRefresh.Location   = New-Object System.Drawing.Point(490, 5)
 $btnRefresh.BackColor  = '#3a3d41'
 $btnRefresh.ForeColor  = 'White'
 $btnRefresh.FlatStyle  = 'Flat'
 $btnRefresh.FlatAppearance.BorderSize = 0
-$btnRefresh.Font = 'Segoe UI,10'
-$form.Controls.Add($btnRefresh)
+$btnRefresh.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$buttonPanel.Controls.Add($btnRefresh)
 
 # Populate folder list
 $loadFolders = {
@@ -187,7 +241,6 @@ $loadFolders = {
         $progressBar.Style = 'Marquee'
         $form.Refresh()
         
-        # Directly fetch content without repository test
         $content = Get-GitHubContent
         $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         
@@ -201,6 +254,7 @@ $loadFolders = {
         foreach ($dir in $dirs) {
             $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
             $item.Tag = $dir.path
+            $item.ImageIndex = 0
             $listView.Items.Add($item) | Out-Null
         }
         $listView.EndUpdate()
@@ -219,11 +273,11 @@ $loadFolders = {
     }
 }
 
-# Download selected folder
+# Download selected folders
 $btnDownload.Add_Click({
     if ($listView.SelectedItems.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show(
-            'Please select a folder first',
+            'Please select at least one folder',
             'Selection Required',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -231,10 +285,8 @@ $btnDownload.Add_Click({
         return
     }
 
-    $folder = $listView.SelectedItems[0].Text
-    $path = $listView.SelectedItems[0].Tag
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dlg.Description = "Select download location for '$folder'"
+    $dlg.Description = "Select download location"
     $dlg.RootFolder = 'MyComputer'
     $dlg.ShowNewFolderButton = $true
     
@@ -243,6 +295,10 @@ $btnDownload.Add_Click({
         return 
     }
 
+    $totalFiles = 0
+    $successCount = 0
+    $foldersToDownload = $listView.SelectedItems
+    
     try {
         # Setup progress UI
         $progressBar.Visible = $true
@@ -250,46 +306,58 @@ $btnDownload.Add_Click({
         $progressBar.Value = 0
         $btnDownload.Enabled = $false
         $listView.Enabled = $false
-        $statusBar.Text = "Preparing to download '$folder'..."
+        $statusBar.Text = "Preparing download..."
         $form.Refresh()
-
-        # Get file list
-        $files = Get-GitHubFileList -Path $path -ProgressBar $progressBar -StatusLabel $statusBar
         
-        if (-not $files) {
-            $statusBar.Text = "No files found in '$folder'"
+        # First pass: Count total files
+        foreach ($item in $foldersToDownload) {
+            $path = $item.Tag
+            $files = Get-GitHubFileList -Path $path -ProgressBar $progressBar -StatusBar $statusBar
+            $totalFiles += $files.Count
+        }
+        
+        if ($totalFiles -eq 0) {
+            $statusBar.Text = "No files found in selected folders"
             return
         }
-
-        # Download files
-        $progressBar.Maximum = $files.Count
+        
+        $progressBar.Maximum = $totalFiles
         $progressBar.Value = 0
         $counter = 0
-        $successCount = 0
         
-        foreach ($file in $files) {
-            $counter++
-            $progressBar.Value = $counter
-            $statusBar.Text = "Downloading file $counter/$($files.Count) - $($file.RelativePath)"
+        # Second pass: Download files
+        foreach ($item in $foldersToDownload) {
+            $folder = $item.Text
+            $path = $item.Tag
+            $statusBar.Text = "Processing folder: $folder"
             $form.Refresh()
+            
+            $files = Get-GitHubFileList -Path $path -ProgressBar $null -StatusBar $statusBar
+            
+            foreach ($file in $files) {
+                $counter++
+                $progressBar.Value = $counter
+                $statusBar.Text = "Downloading file $counter/$totalFiles - $($file.RelativePath)"
+                $form.Refresh()
 
-            $localPath = Join-Path $dlg.SelectedPath $file.RelativePath
-            $dirPath = [System.IO.Path]::GetDirectoryName($localPath)
-            
-            if (-not (Test-Path $dirPath)) {
-                New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
-            }
-            
-            try {
-                Invoke-WebRequest -Uri $file.DownloadUrl -OutFile $localPath -Headers $Headers -UserAgent "PowerShellApp"
-                $successCount++
-            } catch {
-                $statusBar.Text = "Error downloading $($file.RelativePath): $($_.Exception.Message)"
+                $localPath = Join-Path $dlg.SelectedPath $folder $file.RelativePath
+                $dirPath = [System.IO.Path]::GetDirectoryName($localPath)
+                
+                if (-not (Test-Path $dirPath)) {
+                    New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
+                }
+                
+                try {
+                    Invoke-WebRequest -Uri $file.DownloadUrl -OutFile $localPath -Headers $Headers -UserAgent "PowerShellApp"
+                    $successCount++
+                } catch {
+                    $statusBar.Text = "Error downloading $($file.RelativePath): $($_.Exception.Message)"
+                }
             }
         }
 
         [System.Windows.Forms.MessageBox]::Show(
-            "Successfully downloaded $successCount/$($files.Count) files to:`n$($dlg.SelectedPath)",
+            "Successfully downloaded $successCount/$totalFiles files to:`n$($dlg.SelectedPath)",
             'Download Complete',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -321,11 +389,33 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Load folders after form shows
+# Form shown event
 $form.Add_Shown({
-    $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-    & $loadFolders
-    $form.Cursor = [System.Windows.Forms.Cursors]::Default
+    try {
+        # Show welcome screen briefly
+        $form.Refresh()
+        Start-Sleep -Milliseconds 1000
+        
+        # Load folders
+        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+        & $loadFolders
+        
+        # Switch to main panel
+        $welcomePanel.Visible = $false
+        $mainPanel.Visible = $true
+    } catch {
+        $welcomePanel.Visible = $false
+        $mainPanel.Visible = $true
+        [System.Windows.Forms.MessageBox]::Show(
+            "GitHub API Error:`n$($_.Exception.Message)",
+            'Connection Failed',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        $statusBar.Text = "Error: $($_.Exception.Message)"
+    } finally {
+        $form.Cursor = [System.Windows.Forms.Cursors]::Default
+    }
 })
 
 # Handle form closing
