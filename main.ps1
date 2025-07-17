@@ -108,7 +108,7 @@ $repoLabel = New-Object System.Windows.Forms.Label
 $repoLabel.Text      = "$Owner/$Repo : $Branch"
 $repoLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 10)
 $repoLabel.AutoSize  = $true
-$repoLabel.Location  = New-Object System.Drawing.Point(20, 50)
+$repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
 $repoLabel.ForeColor = 'Silver'
 $titlePanel.Controls.Add($repoLabel)
 
@@ -138,16 +138,6 @@ $loadingLabel.Location  = New-Object System.Drawing.Point(280, 280)
 $loadingLabel.ForeColor = 'Silver'
 $loadingLabel.BackColor = 'Transparent'
 $welcomePanel.Controls.Add($loadingLabel)
-
-# Loading Animation (simple dots)
-$loadingDots = New-Object System.Windows.Forms.Label
-$loadingDots.Text      = ""
-$loadingDots.Font      = New-Object System.Drawing.Font("Segoe UI", 12)
-$loadingDots.AutoSize  = $true
-$loadingDots.Location  = New-Object System.Drawing.Point(280, 310)
-$loadingDots.ForeColor = 'Silver'
-$loadingDots.BackColor = 'Transparent'
-$welcomePanel.Controls.Add($loadingDots)
 
 # Main Panel (initially hidden)
 $mainPanel = New-Object System.Windows.Forms.Panel
@@ -322,7 +312,7 @@ $btnDownload.Add_Click({
         # First pass: Count total files
         foreach ($item in $foldersToDownload) {
             $path = $item.Tag
-            $files = Get-GitHubFileList -Path $path -ProgressBar $null -StatusBar $statusBar
+            $files = Get-GitHubFileList -Path $path -ProgressBar $progressBar -StatusBar $statusBar
             $totalFiles += $files.Count
         }
         
@@ -399,42 +389,20 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Simple dot animation timer
-$dotTimer = New-Object System.Windows.Forms.Timer
-$dotTimer.Interval = 500
-$dotState = 0
-$dotTimer.Add_Tick({
-    $dotState = ($dotState + 1) % 4
-    $loadingDots.Text = "." * $dotState
-})
-
 # Form shown event
 $form.Add_Shown({
-    # Start dot animation
-    $dotTimer.Start()
-    
-    # Start loading folders
-    $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
     try {
-        $content = Get-GitHubContent
-        $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
+        # Show welcome screen briefly
+        $form.Refresh()
+        Start-Sleep -Milliseconds 1000
         
-        if ($dirs) {
-            $listView.BeginUpdate()
-            foreach ($dir in $dirs) {
-                $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
-                $item.Tag = $dir.path
-                $item.ImageIndex = 0
-                $listView.Items.Add($item) | Out-Null
-            }
-            $listView.EndUpdate()
-            $btnDownload.Enabled = $true
-        }
+        # Load folders
+        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+        & $loadFolders
         
         # Switch to main panel
         $welcomePanel.Visible = $false
         $mainPanel.Visible = $true
-        $statusBar.Text = "$($dirs.Count) folders found"
     } catch {
         $welcomePanel.Visible = $false
         $mainPanel.Visible = $true
@@ -446,7 +414,6 @@ $form.Add_Shown({
         )
         $statusBar.Text = "Error: $($_.Exception.Message)"
     } finally {
-        $dotTimer.Stop()
         $form.Cursor = [System.Windows.Forms.Cursors]::Default
     }
 })
