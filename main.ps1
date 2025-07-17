@@ -65,7 +65,7 @@ function Get-GitHubFileList {
             }
         }
         
-        if ($ProgressBar) {
+        if ($ProgressBar -and $StatusBar) {
             $StatusBar.Text = "Discovering files... ($($allFiles.Count) found)"
             $ProgressBar.Value = [Math]::Min($ProgressBar.Value + 1, $ProgressBar.Maximum)
             [System.Windows.Forms.Application]::DoEvents()
@@ -141,6 +141,16 @@ $loadingLabel.Location  = New-Object System.Drawing.Point(300, 280)
 $loadingLabel.ForeColor = 'Silver'
 $loadingLabel.BackColor = 'Transparent'
 $welcomePanel.Controls.Add($loadingLabel)
+
+# Loading Animation
+$loadingDots = New-Object System.Windows.Forms.Label
+$loadingDots.Text      = ""
+$loadingDots.Font      = 'Segoe UI,12'
+$loadingDots.AutoSize  = $true
+$loadingDots.Location  = New-Object System.Drawing.Point(300, 310)
+$loadingDots.ForeColor = 'Silver'
+$loadingDots.BackColor = 'Transparent'
+$welcomePanel.Controls.Add($loadingDots)
 
 # Main Panel (initially hidden)
 $mainPanel = New-Object System.Windows.Forms.Panel
@@ -384,48 +394,105 @@ $btnRefresh.Add_Click({
     & $loadFolders
 })
 
-# Animation timer
-$animTimer = New-Object System.Windows.Forms.Timer
-$animTimer.Interval = 50
-$animCounter = 0
-$animTimer.Add_Tick({
-    $animCounter++
+# Animation timer for loading dots
+$dotTimer = New-Object System.Windows.Forms.Timer
+$dotTimer.Interval = 500
+$dotState = 0
+$dotTimer.Add_Tick({
+    $dotState = ($dotState + 1) % 4
+    $loadingDots.Text = "." * $dotState
+})
+
+# Fade-in animation for welcome screen
+$fadeInTimer = New-Object System.Windows.Forms.Timer
+$fadeInTimer.Interval = 50
+$fadeInCounter = 0
+$fadeInTimer.Add_Tick({
+    $fadeInCounter++
+    $welcomePanel.Opacity = $fadeInCounter * 0.05
     
-    # Welcome text animation
-    if ($animCounter -lt 30) {
-        $welcomeLabel.Font = New-Object System.Drawing.Font("Segoe UI", 18 + $animCounter, [System.Drawing.FontStyle]::Bold)
-        $welcomeLabel.Left = ($welcomePanel.Width - $welcomeLabel.Width) / 2
-        $welcomeLabel.Top = ($welcomePanel.Height - $welcomeLabel.Height) / 2 - 50
-    }
-    
-    # Fade out welcome screen
-    if ($animCounter -eq 40) {
-        $animTimer.Stop()
+    if ($fadeInCounter -ge 20) {
+        $fadeInTimer.Stop()
+        $dotTimer.Start()
+        $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
         
-        # Start fade out animation
-        $fadeTimer = New-Object System.Windows.Forms.Timer
-        $fadeTimer.Interval = 30
-        $fadeCounter = 0
-        $fadeTimer.Add_Tick({
-            $fadeCounter++
-            $welcomePanel.Opacity = 1 - ($fadeCounter * 0.05)
-            
-            if ($fadeCounter -ge 20) {
-                $fadeTimer.Stop()
-                $welcomePanel.Visible = $false
-                $mainPanel.Visible = $true
-                $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-                & $loadFolders
+        # Start loading folders in background
+        $bgJob = {
+            try {
+                $content = Get-GitHubContent
+                $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
+                return $dirs
+            } catch {
+                return $null, $_.Exception.Message
+            }
+        }
+        
+        $job = Start-Job -ScriptBlock $bgJob
+        
+        # Check job status
+        $checkJobTimer = New-Object System.Windows.Forms.Timer
+        $checkJobTimer.Interval = 100
+        $checkJobTimer.Add_Tick({
+            if ($job.State -eq 'Completed') {
+                $checkJobTimer.Stop()
+                $dotTimer.Stop()
+                $result = Receive-Job $job
+                Remove-Job $job
+                
+                if ($result -and $result[0] -is [array]) {
+                    $script:dirs = $result
+                } else {
+                    $errorMsg = $result[1]
+                }
+                
                 $form.Cursor = [System.Windows.Forms.Cursors]::Default
+                
+                # Start fade out animation
+                $fadeOutTimer = New-Object System.Windows.Forms.Timer
+                $fadeOutTimer.Interval = 30
+                $fadeOutCounter = 0
+                $fadeOutTimer.Add_Tick({
+                    $fadeOutCounter++
+                    $welcomePanel.Opacity = 1 - ($fadeOutCounter * 0.05)
+                    
+                    if ($fadeOutCounter -ge 20) {
+                        $fadeOutTimer.Stop()
+                        $welcomePanel.Visible = $false
+                        $mainPanel.Visible = $true
+                        
+                        if ($script:dirs) {
+                            $listView.BeginUpdate()
+                            $listView.Items.Clear()
+                            foreach ($dir in $script:dirs) {
+                                $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
+                                $item.Tag = $dir.path
+                                $item.ImageIndex = 0
+                                $listView.Items.Add($item) | Out-Null
+                            }
+                            $listView.EndUpdate()
+                            $statusBar.Text = "$($script:dirs.Count) folders found"
+                            $btnDownload.Enabled = $true
+                        } else {
+                            $statusBar.Text = "Error: $errorMsg"
+                            [System.Windows.Forms.MessageBox]::Show(
+                                "GitHub API Error:`n$errorMsg",
+                                'Connection Failed',
+                                [System.Windows.Forms.MessageBoxButtons]::OK,
+                                [System.Windows.Forms.MessageBoxIcon]::Error
+                            )
+                        }
+                    }
+                })
+                $fadeOutTimer.Start()
             }
         })
-        $fadeTimer.Start()
+        $checkJobTimer.Start()
     }
 })
 
-# Load folders after form shows
+# Load form
 $form.Add_Shown({
-    $animTimer.Start()
+    $fadeInTimer.Start()
 })
 
 # Handle form closing
