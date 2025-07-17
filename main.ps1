@@ -14,16 +14,19 @@ if (-not [string]::IsNullOrEmpty($GitHubToken)) {
     $Headers['Authorization'] = "token $GitHubToken"
 }
 
-function Encode-Path ($Path) {
-    ($Path -split '/') | ForEach-Object { [uri]::EscapeDataString($_) } -join '/'
-}
-
 function Get-GitHubContent ($Path = '') {
-    $encodedPath = if ($Path) { "/" + (Encode-Path $Path) } else { "" }
-    $url = "https://api.github.com/repos/$Owner/$Repo/contents$encodedPath?ref=$Branch"
+    $apiUrl = "https://api.github.com/repos/$Owner/$Repo/contents"
+    
+    # Add path if specified
+    if ($Path) {
+        $apiUrl += "/$([uri]::EscapeDataString($Path))"
+    }
+    
+    # Add branch parameter
+    $apiUrl += "?ref=$([uri]::EscapeDataString($Branch))"
     
     try {
-        $response = Invoke-RestMethod -Uri $url -Headers $Headers -ErrorAction Stop
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $Headers -ErrorAction Stop
         return $response
     } catch {
         $statusCode = $_.Exception.Response.StatusCode.value__
@@ -32,7 +35,7 @@ function Get-GitHubContent ($Path = '') {
         } else {
             $_.Exception.Message
         }
-        throw "GitHub API Error: $errorMsg`nURL: $url"
+        throw "GitHub API Error: $errorMsg`nURL: $apiUrl"
     }
 }
 
@@ -184,15 +187,10 @@ $loadFolders = {
         $progressBar.Style = 'Marquee'
         $form.Refresh()
         
-        # Verify repository exists
-        $testUrl = "https://api.github.com/repos/$Owner/$Repo"
-        try {
-            $repoInfo = Invoke-RestMethod -Uri $testUrl -Headers $Headers
-        } catch {
-            throw "Repository not found: $Owner/$Repo"
-        }
+        # Directly fetch content without repository test
+        $content = Get-GitHubContent
+        $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         
-        $dirs = Get-GitHubContent | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         if (-not $dirs) {
             $statusBar.Text = "No folders found in repository"
             return
@@ -287,7 +285,6 @@ $btnDownload.Add_Click({
                 $successCount++
             } catch {
                 $statusBar.Text = "Error downloading $($file.RelativePath): $($_.Exception.Message)"
-                [System.Windows.Forms.Application]::DoEvents()
             }
         }
 
