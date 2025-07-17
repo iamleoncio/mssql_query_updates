@@ -6,7 +6,10 @@ $GitHubToken = ''  # Optional: Add personal access token if needed
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Create headers with authentication if token is provided
-$Headers = @{'User-Agent' = 'PowerShellApp'}
+$Headers = @{
+    'User-Agent' = 'PowerShellApp'
+    'Accept' = 'application/vnd.github.v3+json'
+}
 if (-not [string]::IsNullOrEmpty($GitHubToken)) {
     $Headers['Authorization'] = "token $GitHubToken"
 }
@@ -16,8 +19,8 @@ function Encode-Path ($Path) {
 }
 
 function Get-GitHubContent ($Path = '') {
-    $enc = if ($Path) { '/' + (Encode-Path $Path) } else { '' }
-    $url = "https://api.github.com/repos/$Owner/$Repo/contents$enc?ref=$Branch"
+    $encodedPath = if ($Path) { "/" + (Encode-Path $Path) } else { "" }
+    $url = "https://api.github.com/repos/$Owner/$Repo/contents$encodedPath?ref=$Branch"
     
     try {
         $response = Invoke-RestMethod -Uri $url -Headers $Headers -ErrorAction Stop
@@ -29,7 +32,7 @@ function Get-GitHubContent ($Path = '') {
         } else {
             $_.Exception.Message
         }
-        throw "Failed to access GitHub: $errorMsg`nURL: $url"
+        throw "GitHub API Error: $errorMsg`nURL: $url"
     }
 }
 
@@ -75,7 +78,7 @@ Add-Type -AssemblyName System.Drawing
 # Main Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = "$Repo Browser"
-$form.Size            = '650,550'
+$form.Size            = '700,600'
 $form.StartPosition   = 'CenterScreen'
 $form.BackColor       = '#1e1e1e'
 $form.ForeColor       = 'White'
@@ -84,7 +87,7 @@ $form.MaximizeBox     = $false
 
 # Title Panel
 $titlePanel = New-Object System.Windows.Forms.Panel
-$titlePanel.Size = New-Object System.Drawing.Size(650, 60)
+$titlePanel.Size = New-Object System.Drawing.Size(700, 70)
 $titlePanel.BackColor = '#2d2d30'
 $titlePanel.Dock = 'Top'
 $form.Controls.Add($titlePanel)
@@ -92,7 +95,7 @@ $form.Controls.Add($titlePanel)
 # Title Label
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text      = "GitHub Repository Browser"
-$titleLabel.Font      = 'Segoe UI,14,style=Bold'
+$titleLabel.Font      = 'Segoe UI,16,style=Bold'
 $titleLabel.AutoSize  = $true
 $titleLabel.Location  = New-Object System.Drawing.Point(20, 20)
 $titlePanel.Controls.Add($titleLabel)
@@ -100,7 +103,7 @@ $titlePanel.Controls.Add($titleLabel)
 # Repo Info
 $repoLabel = New-Object System.Windows.Forms.Label
 $repoLabel.Text      = "$Owner/$Repo : $Branch"
-$repoLabel.Font      = 'Segoe UI,9'
+$repoLabel.Font      = 'Segoe UI,10'
 $repoLabel.AutoSize  = $true
 $repoLabel.Location  = New-Object System.Drawing.Point(20, 45)
 $repoLabel.ForeColor = 'Silver'
@@ -109,14 +112,14 @@ $titlePanel.Controls.Add($repoLabel)
 # Folder ListView
 $listView = New-Object System.Windows.Forms.ListView
 $listView.View       = 'Details'
-$listView.Size       = New-Object System.Drawing.Size(600, 300)
-$listView.Location   = New-Object System.Drawing.Point(20, 80)
+$listView.Size       = New-Object System.Drawing.Size(650, 350)
+$listView.Location   = New-Object System.Drawing.Point(25, 85)
 $listView.FullRowSelect = $true
 $listView.MultiSelect   = $false
 $listView.BackColor     = '#252526'
 $listView.ForeColor     = 'White'
 $listView.BorderStyle   = 'FixedSingle'
-$listView.Columns.Add("Folders", 580) | Out-Null
+$listView.Columns.Add("Folders", 630) | Out-Null
 $form.Controls.Add($listView)
 
 # Status Bar
@@ -124,14 +127,14 @@ $statusBar = New-Object System.Windows.Forms.StatusBar
 $statusBar.Text = "Ready"
 $statusBar.BackColor = '#007acc'
 $statusBar.ForeColor = 'White'
-$statusBar.Height = 22
+$statusBar.Height = 24
 $statusBar.Dock = 'Bottom'
 $form.Controls.Add($statusBar)
 
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Size      = New-Object System.Drawing.Size(600, 20)
-$progressBar.Location  = New-Object System.Drawing.Point(20, 390)
+$progressBar.Size      = New-Object System.Drawing.Size(650, 25)
+$progressBar.Location  = New-Object System.Drawing.Point(25, 450)
 $progressBar.Style     = 'Marquee'
 $progressBar.Visible   = $false
 $form.Controls.Add($progressBar)
@@ -140,20 +143,20 @@ $form.Controls.Add($progressBar)
 $btnDownload = New-Object System.Windows.Forms.Button
 $btnDownload.Text       = 'Download Selected Folder'
 $btnDownload.Size       = New-Object System.Drawing.Size(250, 40)
-$btnDownload.Location   = New-Object System.Drawing.Point(50, 430)
+$btnDownload.Location   = New-Object System.Drawing.Point(50, 490)
 $btnDownload.BackColor  = '#3276b1'
 $btnDownload.ForeColor  = 'White'
 $btnDownload.Enabled    = $false
 $btnDownload.FlatStyle  = 'Flat'
 $btnDownload.FlatAppearance.BorderSize = 0
-$btnDownload.Font = 'Segoe UI,10'
+$btnDownload.Font = 'Segoe UI,10,style=Bold'
 $form.Controls.Add($btnDownload)
 
 # GitHub Link Button
 $btnGitHub = New-Object System.Windows.Forms.Button
 $btnGitHub.Text       = 'Open in GitHub'
 $btnGitHub.Size       = New-Object System.Drawing.Size(150, 40)
-$btnGitHub.Location   = New-Object System.Drawing.Point(320, 430)
+$btnGitHub.Location   = New-Object System.Drawing.Point(320, 490)
 $btnGitHub.BackColor  = '#4078c0'
 $btnGitHub.ForeColor  = 'White'
 $btnGitHub.FlatStyle  = 'Flat'
@@ -165,7 +168,7 @@ $form.Controls.Add($btnGitHub)
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text       = 'Refresh'
 $btnRefresh.Size       = New-Object System.Drawing.Size(150, 40)
-$btnRefresh.Location   = New-Object System.Drawing.Point(480, 430)
+$btnRefresh.Location   = New-Object System.Drawing.Point(490, 490)
 $btnRefresh.BackColor  = '#3a3d41'
 $btnRefresh.ForeColor  = 'White'
 $btnRefresh.FlatStyle  = 'Flat'
@@ -178,7 +181,16 @@ $loadFolders = {
     try {
         $statusBar.Text = "Connecting to GitHub..."
         $progressBar.Visible = $true
+        $progressBar.Style = 'Marquee'
         $form.Refresh()
+        
+        # Verify repository exists
+        $testUrl = "https://api.github.com/repos/$Owner/$Repo"
+        try {
+            $repoInfo = Invoke-RestMethod -Uri $testUrl -Headers $Headers
+        } catch {
+            throw "Repository not found: $Owner/$Repo"
+        }
         
         $dirs = Get-GitHubContent | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         if (-not $dirs) {
@@ -199,8 +211,8 @@ $loadFolders = {
     } catch {
         $statusBar.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
-            "Failed to load folders:`n$($_.Exception.Message)",
-            'GitHub Error',
+            "GitHub API Error:`n$($_.Exception.Message)",
+            'Connection Failed',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
@@ -226,6 +238,7 @@ $btnDownload.Add_Click({
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
     $dlg.Description = "Select download location for '$folder'"
     $dlg.RootFolder = 'MyComputer'
+    $dlg.ShowNewFolderButton = $true
     
     if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { 
         $statusBar.Text = "Download canceled"
@@ -270,10 +283,11 @@ $btnDownload.Add_Click({
             }
             
             try {
-                Invoke-WebRequest -Uri $file.DownloadUrl -OutFile $localPath -Headers $Headers
+                Invoke-WebRequest -Uri $file.DownloadUrl -OutFile $localPath -Headers $Headers -UserAgent "PowerShellApp"
                 $successCount++
             } catch {
                 $statusBar.Text = "Error downloading $($file.RelativePath): $($_.Exception.Message)"
+                [System.Windows.Forms.Application]::DoEvents()
             }
         }
 
@@ -306,6 +320,7 @@ $btnGitHub.Add_Click({
 
 # Refresh button handler
 $btnRefresh.Add_Click({
+    $btnDownload.Enabled = $false
     & $loadFolders
 })
 
