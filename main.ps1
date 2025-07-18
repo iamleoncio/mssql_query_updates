@@ -108,6 +108,7 @@ $buttonBackground = '#334155'     # Button background
 $hoverBlue        = '#93c5fd'     # Light blue for hover
 $successGreen     = '#10b981'     # Success green
 $errorRed         = '#ef4444'     # Error red
+$selectionColor   = '#1e3a8a'     # Selection highlight blue
 
 # Main Form
 $form = New-Object System.Windows.Forms.Form
@@ -184,26 +185,40 @@ $scriptsPanel.BackColor = $cardBackground
 $scriptsPanel.Padding = New-Object System.Windows.Forms.Padding(15)
 $mainLayout.Controls.Add($scriptsPanel, 0, 1)
 
-# Scripts Title
-$scriptsTitle = New-Object System.Windows.Forms.Label
-$scriptsTitle.Text      = "SQL SCRIPTS"
-$scriptsTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$scriptsTitle.ForeColor = $secondaryText
-$scriptsTitle.AutoSize  = $true
-$scriptsTitle.Location  = New-Object System.Drawing.Point(10, 10)
-$scriptsPanel.Controls.Add($scriptsTitle)
-
 # TreeView for Scripts
 $treeView = New-Object System.Windows.Forms.TreeView
 $treeView.Dock = 'Fill'
-$treeView.Location = New-Object System.Drawing.Point(10, 40)
-$treeView.Size = New-Object System.Drawing.Size(800, 400)
 $treeView.CheckBoxes = $true
 $treeView.BackColor = $darkBackground
 $treeView.ForeColor = $lightText
 $treeView.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 $treeView.BorderStyle = 'FixedSingle'
+$treeView.FullRowSelect = $true
+$treeView.HideSelection = $false
+$treeView.ShowLines = $false
+$treeView.ShowPlusMinus = $false
+$treeView.ShowRootLines = $false
+$treeView.DrawMode = 'OwnerDrawText'
 $scriptsPanel.Controls.Add($treeView)
+
+# Custom drawing to remove black background on selection
+$treeView.Add_DrawNode({
+    param($sender, $e)
+    
+    $e.DrawDefault = $true
+    
+    # Custom highlight for selected nodes
+    if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0) {
+        $e.Graphics.FillRectangle(
+            (New-Object System.Drawing.SolidBrush $selectionColor),
+            $e.Bounds
+        )
+        $e.Graphics.DrawString($e.Node.Text, $treeView.Font, 
+            (New-Object System.Drawing.SolidBrush $lightText),
+            $e.Bounds
+        )
+    }
+})
 
 # Add icons
 try {
@@ -491,6 +506,22 @@ $treeView.Add_BeforeExpand({
     }
 })
 
+# TreeView AfterCheck event - Handle folder checkbox propagation
+$treeView.Add_AfterCheck({
+    $node = $_.Node
+    
+    # Only process if the change came from the user
+    if ($_.Action -ne [System.Windows.Forms.TreeViewAction]::Unknown) {
+        # If it's a folder, propagate check state to all children
+        if ($node.ImageKey -eq "Folder") {
+            $isChecked = $node.Checked
+            foreach ($childNode in $node.Nodes) {
+                $childNode.Checked = $isChecked
+            }
+        }
+    }
+})
+
 # TreeView AfterSelect event - Enable run button when scripts are selected
 $treeView.Add_AfterSelect({
     $selectedNode = $treeView.SelectedNode
@@ -502,6 +533,101 @@ $treeView.Add_AfterSelect({
         $btnRun.Enabled = $false
     }
 })
+
+# Helper function to get selected files from tree
+function Get-SelectedFiles($node) {
+    $selected = @()
+    
+    # If it's a folder, get all checked SQL files in it
+    if ($node.ImageKey -eq "Folder" -and $node.Checked) {
+        foreach ($child in $node.Nodes) {
+            $selected += Get-SelectedFiles $child
+        }
+    }
+    # If it's a SQL file and checked, add it
+    elseif ($node.ImageKey -eq "SQL" -and $node.Checked) {
+        $selected += $node.Tag
+    }
+    
+    return $selected
+}
+
+# Function to show results form
+function Show-ResultsForm($successFiles, $failedFiles) {
+    $resultsForm = New-Object System.Windows.Forms.Form
+    $resultsForm.Text = "Execution Results"
+    $resultsForm.Size = '600, 500'
+    $resultsForm.StartPosition = 'CenterParent'
+    $resultsForm.FormBorderStyle = 'FixedDialog'
+    $resultsForm.BackColor = $darkBackground
+    $resultsForm.Padding = New-Object System.Windows.Forms.Padding(20)
+    
+    $tableLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $tableLayout.Dock = 'Fill'
+    $tableLayout.ColumnCount = 1
+    $tableLayout.RowCount = 3
+    $tableLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize))) | Out-Null
+    $tableLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 50))) | Out-Null
+    $tableLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 50))) | Out-Null
+    $resultsForm.Controls.Add($tableLayout)
+    
+    # Summary
+    $summaryLabel = New-Object System.Windows.Forms.Label
+    $summaryLabel.Text = "Success: $($successFiles.Count) scripts, Failed: $($failedFiles.Count) scripts"
+    $summaryLabel.ForeColor = $lightText
+    $summaryLabel.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $summaryLabel.Dock = 'Fill'
+    $summaryLabel.TextAlign = 'MiddleCenter'
+    $tableLayout.Controls.Add($summaryLabel, 0, 0)
+    
+    # Success Panel
+    $successPanel = New-Object System.Windows.Forms.Panel
+    $successPanel.Dock = 'Fill'
+    $successPanel.BackColor = $cardBackground
+    $successPanel.Padding = New-Object System.Windows.Forms.Padding(10)
+    $tableLayout.Controls.Add($successPanel, 0, 1)
+    
+    $successTitle = New-Object System.Windows.Forms.Label
+    $successTitle.Text = "SUCCESSFUL SCRIPTS"
+    $successTitle.ForeColor = $successGreen
+    $successTitle.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $successTitle.Dock = 'Top'
+    $successPanel.Controls.Add($successTitle)
+    
+    $successList = New-Object System.Windows.Forms.ListBox
+    $successList.Dock = 'Fill'
+    $successList.BackColor = $darkBackground
+    $successList.ForeColor = $successGreen
+    $successList.BorderStyle = 'None'
+    $successList.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $successList.Items.AddRange($successFiles)
+    $successPanel.Controls.Add($successList)
+    
+    # Failed Panel
+    $failedPanel = New-Object System.Windows.Forms.Panel
+    $failedPanel.Dock = 'Fill'
+    $failedPanel.BackColor = $cardBackground
+    $failedPanel.Padding = New-Object System.Windows.Forms.Padding(10)
+    $tableLayout.Controls.Add($failedPanel, 0, 2)
+    
+    $failedTitle = New-Object System.Windows.Forms.Label
+    $failedTitle.Text = "FAILED SCRIPTS"
+    $failedTitle.ForeColor = $errorRed
+    $failedTitle.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $failedTitle.Dock = 'Top'
+    $failedPanel.Controls.Add($failedTitle)
+    
+    $failedList = New-Object System.Windows.Forms.ListBox
+    $failedList.Dock = 'Fill'
+    $failedList.BackColor = $darkBackground
+    $failedList.ForeColor = $errorRed
+    $failedList.BorderStyle = 'None'
+    $failedList.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $failedList.Items.AddRange($failedFiles)
+    $failedPanel.Controls.Add($failedList)
+    
+    $resultsForm.ShowDialog() | Out-Null
+}
 
 # Run button handler
 $btnRun.Add_Click({
@@ -540,8 +666,8 @@ $btnRun.Add_Click({
     $progressBar.Value = 0
     $form.Refresh()
     
-    $successCount = 0
-    $errorCount = 0
+    $successFiles = @()
+    $failedFiles = @()
     
     try {
         foreach ($file in $selectedFiles) {
@@ -561,22 +687,19 @@ $btnRun.Add_Click({
                     -Password $global:SqlCredentials.Password
                 
                 if ($result) {
-                    $successCount++
+                    $successFiles += $file.Name
                 } else {
-                    $errorCount++
+                    $failedFiles += $file.Name
                 }
             } catch {
-                $errorCount++
+                $failedFiles += $file.Name
             }
         }
         
-        $statusLabel.Text = "Execution completed: $successCount succeeded, $errorCount failed"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Script execution completed!`nSuccess: $successCount`nFailed: $errorCount",
-            'Execution Summary',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        ) | Out-Null
+        $statusLabel.Text = "Execution completed: $($successFiles.Count) succeeded, $($failedFiles.Count) failed"
+        
+        # Show detailed results
+        Show-ResultsForm $successFiles $failedFiles
     } catch {
         $statusLabel.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
@@ -589,21 +712,6 @@ $btnRun.Add_Click({
         $progressBar.Visible = $false
     }
 })
-
-# Helper function to get selected files from tree
-function Get-SelectedFiles($node) {
-    $selected = @()
-    
-    if ($node.Checked -and $node.ImageKey -eq "SQL") {
-        $selected += $node.Tag
-    }
-    
-    foreach ($child in $node.Nodes) {
-        $selected += Get-SelectedFiles $child
-    }
-    
-    return $selected
-}
 
 # Credentials button handler
 $btnCredentials.Add_Click({
