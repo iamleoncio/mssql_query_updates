@@ -143,6 +143,12 @@ $listCard.Padding = New-Object System.Windows.Forms.Padding(15)
 $listCard.Margin = New-Object System.Windows.Forms.Padding(0, 15, 0, 15)
 $mainLayout.Controls.Add($listCard, 0, 1)
 
+# Create inner container for proper spacing
+$innerContainer = New-Object System.Windows.Forms.Panel
+$innerContainer.Dock = 'Fill'
+$innerContainer.Padding = New-Object System.Windows.Forms.Padding(0, 30, 0, 0)  # Reserve top space for header
+$listCard.Controls.Add($innerContainer)
+
 # Card Title
 $cardTitle = New-Object System.Windows.Forms.Label
 $cardTitle.Text      = "AVAILABLE FOLDERS"
@@ -150,13 +156,12 @@ $cardTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Dr
 $cardTitle.ForeColor = $secondaryText
 $cardTitle.AutoSize  = $true
 $cardTitle.Location  = New-Object System.Drawing.Point(10, 10)
-$listCard.Controls.Add($cardTitle)
+$listCard.Controls.Add($cardTitle)  # Add directly to listCard
 
 # Folder ListView
 $listView = New-Object System.Windows.Forms.ListView
 $listView.View       = 'Details'
 $listView.Dock       = 'Fill'
-$listView.Margin     = New-Object System.Windows.Forms.Padding(0, 40, 0, 0)
 $listView.FullRowSelect = $true
 $listView.MultiSelect   = $true
 $listView.BackColor     = $darkBackground
@@ -164,6 +169,7 @@ $listView.ForeColor     = $lightText
 $listView.BorderStyle   = 'FixedSingle'
 $listView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
 $listView.HeaderStyle   = 'None'
+$innerContainer.Controls.Add($listView)  # Add to inner container
 
 # Add folder icon
 try {
