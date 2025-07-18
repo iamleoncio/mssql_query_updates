@@ -177,86 +177,51 @@ $credentialsStatus.AutoSize  = $true
 $credentialsStatus.Location  = New-Object System.Drawing.Point(700, 65)
 $headerPanel.Controls.Add($credentialsStatus)
 
-# Split Container
-$splitContainer = New-Object System.Windows.Forms.SplitContainer
-$splitContainer.Dock = 'Fill'
-$splitContainer.Orientation = 'Horizontal'
-$splitContainer.SplitterDistance = 250
-$splitContainer.BackColor = $darkBackground
-$splitContainer.Panel1.BackColor = $cardBackground
-$splitContainer.Panel2.BackColor = $cardBackground
-$mainLayout.Controls.Add($splitContainer, 0, 1)
+# Scripts Panel
+$scriptsPanel = New-Object System.Windows.Forms.Panel
+$scriptsPanel.Dock = 'Fill'
+$scriptsPanel.BackColor = $cardBackground
+$scriptsPanel.Padding = New-Object System.Windows.Forms.Padding(15)
+$mainLayout.Controls.Add($scriptsPanel, 0, 1)
 
-# Folders Panel
-$foldersPanel = New-Object System.Windows.Forms.Panel
-$foldersPanel.Dock = 'Fill'
-$foldersPanel.Padding = New-Object System.Windows.Forms.Padding(15)
-$splitContainer.Panel1.Controls.Add($foldersPanel)
+# Scripts Title
+$scriptsTitle = New-Object System.Windows.Forms.Label
+$scriptsTitle.Text      = "SQL SCRIPTS"
+$scriptsTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$scriptsTitle.ForeColor = $secondaryText
+$scriptsTitle.AutoSize  = $true
+$scriptsTitle.Location  = New-Object System.Drawing.Point(10, 10)
+$scriptsPanel.Controls.Add($scriptsTitle)
 
-# Folders Title
-$foldersTitle = New-Object System.Windows.Forms.Label
-$foldersTitle.Text      = "SCRIPT CATEGORIES"
-$foldersTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$foldersTitle.ForeColor = $secondaryText
-$foldersTitle.AutoSize  = $true
-$foldersTitle.Location  = New-Object System.Drawing.Point(10, 10)
-$foldersPanel.Controls.Add($foldersTitle)
+# TreeView for Scripts
+$treeView = New-Object System.Windows.Forms.TreeView
+$treeView.Dock = 'Fill'
+$treeView.Location = New-Object System.Drawing.Point(10, 40)
+$treeView.Size = New-Object System.Drawing.Size(800, 400)
+$treeView.CheckBoxes = $true
+$treeView.BackColor = $darkBackground
+$treeView.ForeColor = $lightText
+$treeView.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$treeView.BorderStyle = 'FixedSingle'
+$scriptsPanel.Controls.Add($treeView)
 
-# Folders ListView
-$foldersListView = New-Object System.Windows.Forms.ListView
-$foldersListView.View       = 'Details'
-$foldersListView.Location   = New-Object System.Drawing.Point(10, 40)
-$foldersListView.Size       = New-Object System.Drawing.Size(800, 180)
-$foldersListView.FullRowSelect = $true
-$foldersListView.MultiSelect   = $false
-$foldersListView.BackColor     = $darkBackground
-$foldersListView.ForeColor     = $lightText
-$foldersListView.BorderStyle   = 'FixedSingle'
-$foldersListView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
-$foldersListView.HeaderStyle   = 'None'
-
-# Add folder icon
+# Add icons
 try {
-    $foldersListView.SmallImageList = New-Object System.Windows.Forms.ImageList
-    $foldersListView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
+    $imageList = New-Object System.Windows.Forms.ImageList
+    $imageList.ImageSize = New-Object System.Drawing.Size(24, 24)
+    
+    # Folder icon
     $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
-    $foldersListView.SmallImageList.Images.Add($folderIcon)
+    $imageList.Images.Add("Folder", $folderIcon) | Out-Null
+    
+    # SQL file icon (using document icon as substitute)
+    $fileIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\imageres.dll")
+    $imageList.Images.Add("SQL", $fileIcon) | Out-Null
+    
+    $treeView.ImageList = $imageList
 } catch {
     # Continue without icons if extraction fails
 }
-
-$foldersListView.Columns.Add("Folders", 780) | Out-Null
-$foldersPanel.Controls.Add($foldersListView)
-
-# Files Panel
-$filesPanel = New-Object System.Windows.Forms.Panel
-$filesPanel.Dock = 'Fill'
-$filesPanel.Padding = New-Object System.Windows.Forms.Padding(15)
-$splitContainer.Panel2.Controls.Add($filesPanel)
-
-# Files Title
-$filesTitle = New-Object System.Windows.Forms.Label
-$filesTitle.Text      = "SQL SCRIPTS"
-$filesTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$filesTitle.ForeColor = $secondaryText
-$filesTitle.AutoSize  = $true
-$filesTitle.Location  = New-Object System.Drawing.Point(10, 10)
-$filesPanel.Controls.Add($filesTitle)
-
-# Files ListView
-$filesListView = New-Object System.Windows.Forms.ListView
-$filesListView.View       = 'Details'
-$filesListView.Location   = New-Object System.Drawing.Point(10, 40)
-$filesListView.Size       = New-Object System.Drawing.Size(800, 300)
-$filesListView.FullRowSelect = $true
-$filesListView.MultiSelect   = $false
-$filesListView.BackColor     = $darkBackground
-$filesListView.ForeColor     = $lightText
-$filesListView.BorderStyle   = 'FixedSingle'
-$filesListView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
-$filesListView.HeaderStyle   = 'None'
-$filesListView.Columns.Add("Scripts", 780) | Out-Null
-$filesPanel.Controls.Add($filesListView)
 
 # Button Container
 $buttonContainer = New-Object System.Windows.Forms.Panel
@@ -274,8 +239,8 @@ $buttonContainer.Controls.Add($buttonLayout)
 
 # Run Button
 $btnRun = New-Object System.Windows.Forms.Button
-$btnRun.Text       = 'RUN SCRIPT'
-$btnRun.Size       = New-Object System.Drawing.Size(150, 45)
+$btnRun.Text       = 'RUN SELECTED SCRIPTS'
+$btnRun.Size       = New-Object System.Drawing.Size(220, 45)
 $btnRun.BackColor  = $successGreen
 $btnRun.ForeColor  = $lightText
 $btnRun.Enabled    = $false
@@ -284,6 +249,18 @@ $btnRun.FlatAppearance.BorderSize = 0
 $btnRun.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $btnRun.Cursor = [System.Windows.Forms.Cursors]::Hand
 $buttonLayout.Controls.Add($btnRun)
+
+# Refresh Button
+$btnRefresh = New-Object System.Windows.Forms.Button
+$btnRefresh.Text       = 'REFRESH'
+$btnRefresh.Size       = New-Object System.Drawing.Size(120, 45)
+$btnRefresh.BackColor  = $buttonBackground
+$btnRefresh.ForeColor  = $lightText
+$btnRefresh.FlatStyle  = 'Flat'
+$btnRefresh.FlatAppearance.BorderSize = 0
+$btnRefresh.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$btnRefresh.Cursor = [System.Windows.Forms.Cursors]::Hand
+$buttonLayout.Controls.Add($btnRefresh)
 
 # Status Bar
 $statusBar = New-Object System.Windows.Forms.StatusBar
@@ -434,35 +411,35 @@ function Show-CredentialsForm {
     return $null
 }
 
-# Populate folder list
-$loadFolders = {
+# Function to populate tree view
+function Populate-TreeView {
+    $statusLabel.Text = "Loading repository content..."
+    $progressBar.Visible = $true
+    $progressBar.Style = 'Marquee'
+    $form.Refresh()
+    
     try {
-        $statusLabel.Text = "Connecting to GitHub..."
-        $progressBar.Visible = $true
-        $progressBar.Style = 'Marquee'
-        $form.Refresh()
-        
+        $treeView.Nodes.Clear()
         $content = Get-GitHubContent
-        $dirs = $content | Where-Object { $_.type -eq 'dir' } | Sort-Object name
         
-        if (-not $dirs) {
-            $statusLabel.Text = "No folders found in repository"
-            return
-        }
-        
-        $foldersListView.BeginUpdate()
-        $foldersListView.Items.Clear()
-        foreach ($dir in $dirs) {
-            $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
-            $item.Tag = $dir.path
-            if ($foldersListView.SmallImageList -ne $null) {
-                $item.ImageIndex = 0
+        # Add folders to tree view
+        foreach ($item in $content) {
+            if ($item.type -eq 'dir') {
+                $folderNode = New-Object System.Windows.Forms.TreeNode($item.name)
+                $folderNode.Tag = $item.path
+                $folderNode.ImageKey = "Folder"
+                $folderNode.SelectedImageKey = "Folder"
+                
+                # Add dummy node to enable expansion arrow
+                $dummyNode = New-Object System.Windows.Forms.TreeNode("Loading...")
+                $folderNode.Nodes.Add($dummyNode) | Out-Null
+                
+                $treeView.Nodes.Add($folderNode) | Out-Null
             }
-            $item.ForeColor = $lightText
-            $foldersListView.Items.Add($item) | Out-Null
         }
-        $foldersListView.EndUpdate()
-        $statusLabel.Text = "$($dirs.Count) folders found"
+        
+        $statusLabel.Text = "$($treeView.Nodes.Count) folders loaded"
+        $btnRun.Enabled = $false
     } catch {
         $statusLabel.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
@@ -476,34 +453,32 @@ $loadFolders = {
     }
 }
 
-# Folder selection handler
-$foldersListView.Add_ItemSelectionChanged({
-    if ($_.IsSelected) {
-        $selectedItem = $_.Item
-        $folderPath = $selectedItem.Tag
-        $statusLabel.Text = "Loading scripts for: $($selectedItem.Text)"
+# TreeView BeforeExpand event - Load scripts when folder is expanded
+$treeView.Add_BeforeExpand({
+    $node = $_.Node
+    
+    # Clear dummy node if it exists
+    if ($node.Nodes.Count -eq 1 -and $node.Nodes[0].Text -eq "Loading...") {
+        $node.Nodes.Clear()
         
         try {
-            $filesListView.BeginUpdate()
-            $filesListView.Items.Clear()
-            $btnRun.Enabled = $false
+            $statusLabel.Text = "Loading scripts for: $($node.Text)"
+            $progressBar.Visible = $true
+            $form.Refresh()
             
-            $sqlFiles = Get-SqlFilesInFolder -FolderPath $folderPath
+            $sqlFiles = Get-SqlFilesInFolder -FolderPath $node.Tag
             
-            if ($sqlFiles) {
-                foreach ($file in $sqlFiles) {
-                    $item = New-Object System.Windows.Forms.ListViewItem($file.Name)
-                    $item.Tag = $file
-                    $item.ForeColor = $lightText
-                    $filesListView.Items.Add($item) | Out-Null
-                }
-                $btnRun.Enabled = $true
-                $statusLabel.Text = "$($sqlFiles.Count) SQL scripts found"
-            } else {
-                $statusLabel.Text = "No SQL scripts found in this folder"
+            foreach ($file in $sqlFiles) {
+                $fileNode = New-Object System.Windows.Forms.TreeNode($file.Name)
+                $fileNode.Tag = $file
+                $fileNode.ImageKey = "SQL"
+                $fileNode.SelectedImageKey = "SQL"
+                $node.Nodes.Add($fileNode) | Out-Null
             }
+            
+            $statusLabel.Text = "$($sqlFiles.Count) scripts loaded in $($node.Text)"
         } catch {
-            $statusLabel.Text = "Error: $($_.Exception.Message)"
+            $statusLabel.Text = "Error loading scripts: $($_.Exception.Message)"
             [System.Windows.Forms.MessageBox]::Show(
                 "Error loading scripts:`n$($_.Exception.Message)",
                 'Error',
@@ -511,23 +486,34 @@ $foldersListView.Add_ItemSelectionChanged({
                 [System.Windows.Forms.MessageBoxIcon]::Error
             ) | Out-Null
         } finally {
-            $filesListView.EndUpdate()
+            $progressBar.Visible = $false
         }
     }
 })
 
-# Script selection handler
-$filesListView.Add_ItemSelectionChanged({
-    if ($_.IsSelected) {
+# TreeView AfterSelect event - Enable run button when scripts are selected
+$treeView.Add_AfterSelect({
+    $selectedNode = $treeView.SelectedNode
+    
+    # Only enable run button if SQL file is selected
+    if ($selectedNode -and $selectedNode.ImageKey -eq "SQL") {
         $btnRun.Enabled = $true
+    } else {
+        $btnRun.Enabled = $false
     }
 })
 
 # Run button handler
 $btnRun.Add_Click({
-    if ($filesListView.SelectedItems.Count -eq 0) {
+    # Get all selected SQL files
+    $selectedFiles = @()
+    foreach ($node in $treeView.Nodes) {
+        $selectedFiles += Get-SelectedFiles $node
+    }
+    
+    if ($selectedFiles.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show(
-            'Please select a script to run',
+            'Please select at least one SQL script to run',
             'Selection Required',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -547,45 +533,54 @@ $btnRun.Add_Click({
         $credentialsStatus.ForeColor = $successGreen
     }
     
-    $selectedItem = $filesListView.SelectedItems[0]
-    $fileInfo = $selectedItem.Tag
-    $statusLabel.Text = "Running script: $($fileInfo.Name)"
+    $statusLabel.Text = "Running $($selectedFiles.Count) selected scripts..."
     $progressBar.Visible = $true
-    $progressBar.Style = 'Marquee'
+    $progressBar.Style = 'Continuous'
+    $progressBar.Maximum = $selectedFiles.Count
+    $progressBar.Value = 0
     $form.Refresh()
     
+    $successCount = 0
+    $errorCount = 0
+    
     try {
-        # Download script content
-        $scriptContent = (Invoke-WebRequest -Uri $fileInfo.DownloadUrl -Headers $Headers -UserAgent "PowerShellApp").Content
-        
-        # Run SQL script
-        $result = Invoke-SqlScript -ScriptContent $scriptContent `
-            -Server $global:SqlCredentials.Server `
-            -Database $global:SqlCredentials.Database `
-            -Username $global:SqlCredentials.Username `
-            -Password $global:SqlCredentials.Password
-        
-        if ($result) {
-            $statusLabel.Text = "Script executed successfully: $($fileInfo.Name)"
-            [System.Windows.Forms.MessageBox]::Show(
-                "Script executed successfully!",
-                'Success',
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            ) | Out-Null
-        } else {
-            $statusLabel.Text = "Error executing script: $($fileInfo.Name)"
-            [System.Windows.Forms.MessageBox]::Show(
-                "Error executing script!",
-                'Error',
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            ) | Out-Null
+        foreach ($file in $selectedFiles) {
+            $progressBar.Value++
+            $statusLabel.Text = "Running script: $($file.Name) ($($progressBar.Value)/$($selectedFiles.Count))"
+            $form.Refresh()
+            
+            try {
+                # Download script content
+                $scriptContent = (Invoke-WebRequest -Uri $file.DownloadUrl -Headers $Headers -UserAgent "PowerShellApp").Content
+                
+                # Run SQL script
+                $result = Invoke-SqlScript -ScriptContent $scriptContent `
+                    -Server $global:SqlCredentials.Server `
+                    -Database $global:SqlCredentials.Database `
+                    -Username $global:SqlCredentials.Username `
+                    -Password $global:SqlCredentials.Password
+                
+                if ($result) {
+                    $successCount++
+                } else {
+                    $errorCount++
+                }
+            } catch {
+                $errorCount++
+            }
         }
+        
+        $statusLabel.Text = "Execution completed: $successCount succeeded, $errorCount failed"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Script execution completed!`nSuccess: $successCount`nFailed: $errorCount",
+            'Execution Summary',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
     } catch {
         $statusLabel.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
-            "Error running script:`n$($_.Exception.Message)",
+            "Error running scripts:`n$($_.Exception.Message)",
             'Error',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
@@ -594,6 +589,21 @@ $btnRun.Add_Click({
         $progressBar.Visible = $false
     }
 })
+
+# Helper function to get selected files from tree
+function Get-SelectedFiles($node) {
+    $selected = @()
+    
+    if ($node.Checked -and $node.ImageKey -eq "SQL") {
+        $selected += $node.Tag
+    }
+    
+    foreach ($child in $node.Nodes) {
+        $selected += Get-SelectedFiles $child
+    }
+    
+    return $selected
+}
 
 # Credentials button handler
 $btnCredentials.Add_Click({
@@ -608,11 +618,15 @@ $btnCredentials.Add_Click({
     }
 })
 
+# Refresh button handler
+$btnRefresh.Add_Click({
+    Populate-TreeView
+})
+
 # Load folders after form shows
 $form.Add_Shown({
     $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-    $statusLabel.Text = "Loading repository content..."
-    & $loadFolders
+    Populate-TreeView
     $form.Cursor = [System.Windows.Forms.Cursors]::Default
 })
 
@@ -641,6 +655,12 @@ $btnCredentials.Add_MouseEnter({
 })
 $btnCredentials.Add_MouseLeave({
     $btnCredentials.BackColor = $buttonBackground
+})
+$btnRefresh.Add_MouseEnter({
+    $btnRefresh.BackColor = $hoverBlue
+})
+$btnRefresh.Add_MouseLeave({
+    $btnRefresh.BackColor = $buttonBackground
 })
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
