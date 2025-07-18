@@ -143,11 +143,14 @@ $listCard.Padding = New-Object System.Windows.Forms.Padding(15)
 $listCard.Margin = New-Object System.Windows.Forms.Padding(0, 15, 0, 15)
 $mainLayout.Controls.Add($listCard, 0, 1)
 
-# Create inner container for proper spacing
-$innerContainer = New-Object System.Windows.Forms.Panel
-$innerContainer.Dock = 'Fill'
-$innerContainer.Padding = New-Object System.Windows.Forms.Padding(0, 30, 0, 0)  # Reserve top space for header
-$listCard.Controls.Add($innerContainer)
+# Create proper layout inside card
+$cardLayout = New-Object System.Windows.Forms.TableLayoutPanel
+$cardLayout.Dock = 'Fill'
+$cardLayout.ColumnCount = 1
+$cardLayout.RowCount = 2
+$cardLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize))) | Out-Null
+$cardLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100))) | Out-Null
+$listCard.Controls.Add($cardLayout)
 
 # Card Title
 $cardTitle = New-Object System.Windows.Forms.Label
@@ -155,8 +158,8 @@ $cardTitle.Text      = "AVAILABLE FOLDERS"
 $cardTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $cardTitle.ForeColor = $secondaryText
 $cardTitle.AutoSize  = $true
-$cardTitle.Location  = New-Object System.Drawing.Point(10, 10)
-$listCard.Controls.Add($cardTitle)  # Add directly to listCard
+$cardTitle.Padding   = New-Object System.Windows.Forms.Padding(0, 0, 0, 10)
+$cardLayout.Controls.Add($cardTitle, 0, 0)
 
 # Folder ListView
 $listView = New-Object System.Windows.Forms.ListView
@@ -169,7 +172,6 @@ $listView.ForeColor     = $lightText
 $listView.BorderStyle   = 'FixedSingle'
 $listView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
 $listView.HeaderStyle   = 'None'
-$innerContainer.Controls.Add($listView)  # Add to inner container
 
 # Add folder icon
 try {
@@ -182,7 +184,7 @@ try {
 }
 
 $listView.Columns.Add("Folders", 700) | Out-Null
-$listCard.Controls.Add($listView)
+$cardLayout.Controls.Add($listView, 0, 1)
 
 # Button Container
 $buttonContainer = New-Object System.Windows.Forms.Panel
