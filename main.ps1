@@ -14,15 +14,16 @@ if (-not [string]::IsNullOrEmpty($GitHubToken)) {
     $Headers['Authorization'] = "token $GitHubToken"
 }
 
+# Global variables for SQL credentials
+$global:SqlCredentials = $null
+
 function Get-GitHubContent ($Path = '') {
     $apiUrl = "https://api.github.com/repos/$Owner/$Repo/contents"
     
-    # Add path if specified
     if ($Path) {
         $apiUrl += "/$([uri]::EscapeDataString($Path))"
     }
     
-    # Add branch parameter
     $apiUrl += "?ref=$([uri]::EscapeDataString($Branch))"
     
     try {
@@ -39,39 +40,57 @@ function Get-GitHubContent ($Path = '') {
     }
 }
 
-function Get-GitHubFileList {
-    param(
-        [string]$Path,
-        [System.Windows.Forms.ProgressBar]$ProgressBar,
-        [System.Windows.Forms.Label]$StatusLabel
-    )
-    $allFiles = [System.Collections.Generic.List[object]]::new()
-    $stack = [System.Collections.Stack]::new()
-    $stack.Push($Path)
+function Get-SqlFilesInFolder ($FolderPath) {
+    $items = Get-GitHubContent -Path $FolderPath
+    $sqlFiles = @()
     
-    while ($stack.Count -gt 0) {
-        $currentPath = $stack.Pop()
-        $items = Get-GitHubContent -Path $currentPath
+    foreach ($item in $items) {
+        if ($item.type -eq 'file' -and $item.name -like '*.sql') {
+            $sqlFiles += [PSCustomObject]@{
+                Name = $item.name
+                Path = $item.path
+                DownloadUrl = $item.download_url
+            }
+        }
+    }
+    
+    return $sqlFiles | Sort-Object Name
+}
+
+function Invoke-SqlScript {
+    param(
+        [string]$ScriptContent,
+        [string]$Server,
+        [string]$Database,
+        [string]$Username,
+        [string]$Password
+    )
+    
+    try {
+        # Create SQL connection
+        $connectionString = "Server=$Server;Database=$Database;User ID=$Username;Password=$Password;"
+        $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+        $connection.Open()
         
-        foreach ($item in $items) {
-            if ($item.type -eq 'file') {
-                $relativePath = $item.path.Substring($Path.Length + 1)
-                $allFiles.Add([PSCustomObject]@{
-                    RelativePath = $relativePath
-                    DownloadUrl = $item.download_url
-                })
-            } elseif ($item.type -eq 'dir') {
-                $stack.Push($item.path)
+        # Split script by GO commands
+        $batches = $ScriptContent -split "\bGO\b"
+        
+        foreach ($batch in $batches) {
+            if (-not [string]::IsNullOrWhiteSpace($batch)) {
+                $command = $connection.CreateCommand()
+                $command.CommandText = $batch
+                $command.ExecuteNonQuery() | Out-Null
             }
         }
         
-        if ($ProgressBar) {
-            $StatusLabel.Text = "Discovering files... ($($allFiles.Count) found)"
-            $ProgressBar.Value = [Math]::Min($ProgressBar.Value + 1, $ProgressBar.Maximum)
-            [System.Windows.Forms.Application]::DoEvents()
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if ($connection.State -eq 'Open') {
+            $connection.Close()
         }
     }
-    return $allFiles
 }
 
 # GUI Setup
@@ -87,12 +106,13 @@ $secondaryText    = '#94a3b8'     # Grayish-blue text
 $progressBlue     = '#60a5fa'     # Light blue for progress
 $buttonBackground = '#334155'     # Button background
 $hoverBlue        = '#93c5fd'     # Light blue for hover
-$borderColor      = '#334155'     # Border color
+$successGreen     = '#10b981'     # Success green
+$errorRed         = '#ef4444'     # Error red
 
 # Main Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = "GitHub Repository Browser"
-$form.Size            = '800,650'
+$form.Text            = "SQL Script Runner"
+$form.Size            = '900,700'
 $form.StartPosition   = 'CenterScreen'
 $form.BackColor       = $darkBackground
 $form.FormBorderStyle = 'FixedDialog'
@@ -119,7 +139,7 @@ $mainLayout.Controls.Add($headerPanel, 0, 0)
 
 # Title Label
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text      = "GitHub Repository Browser"
+$titleLabel.Text      = "SQL Script Runner"
 $titleLabel.Font      = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
 $titleLabel.ForeColor = $lightText
 $titleLabel.AutoSize  = $true
@@ -135,56 +155,108 @@ $repoLabel.AutoSize  = $true
 $repoLabel.Location  = New-Object System.Drawing.Point(20, 60)
 $headerPanel.Controls.Add($repoLabel)
 
-# Folder List Card
-$listCard = New-Object System.Windows.Forms.Panel
-$listCard.Dock = 'Fill'
-$listCard.BackColor = $cardBackground
-$listCard.Padding = New-Object System.Windows.Forms.Padding(15)
-$listCard.Margin = New-Object System.Windows.Forms.Padding(0, 15, 0, 15)
-$mainLayout.Controls.Add($listCard, 0, 1)
+# Credentials Button
+$btnCredentials = New-Object System.Windows.Forms.Button
+$btnCredentials.Text       = 'SET CREDENTIALS'
+$btnCredentials.Size       = New-Object System.Drawing.Size(150, 35)
+$btnCredentials.BackColor  = $buttonBackground
+$btnCredentials.ForeColor  = $lightText
+$btnCredentials.FlatStyle  = 'Flat'
+$btnCredentials.FlatAppearance.BorderSize = 0
+$btnCredentials.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$btnCredentials.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnCredentials.Location  = New-Object System.Drawing.Point(700, 25)
+$headerPanel.Controls.Add($btnCredentials)
 
-# Create proper layout inside card
-$cardLayout = New-Object System.Windows.Forms.TableLayoutPanel
-$cardLayout.Dock = 'Fill'
-$cardLayout.ColumnCount = 1
-$cardLayout.RowCount = 2
-$cardLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize))) | Out-Null
-$cardLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100))) | Out-Null
-$listCard.Controls.Add($cardLayout)
+# Credentials Status
+$credentialsStatus = New-Object System.Windows.Forms.Label
+$credentialsStatus.Text      = "Credentials: Not Set"
+$credentialsStatus.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
+$credentialsStatus.ForeColor = $errorRed
+$credentialsStatus.AutoSize  = $true
+$credentialsStatus.Location  = New-Object System.Drawing.Point(700, 65)
+$headerPanel.Controls.Add($credentialsStatus)
 
-# Card Title
-$cardTitle = New-Object System.Windows.Forms.Label
-$cardTitle.Text      = "AVAILABLE FOLDERS"
-$cardTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$cardTitle.ForeColor = $secondaryText
-$cardTitle.AutoSize  = $true
-$cardTitle.Padding   = New-Object System.Windows.Forms.Padding(0, 0, 0, 10)
-$cardLayout.Controls.Add($cardTitle, 0, 0)
+# Split Container
+$splitContainer = New-Object System.Windows.Forms.SplitContainer
+$splitContainer.Dock = 'Fill'
+$splitContainer.Orientation = 'Horizontal'
+$splitContainer.SplitterDistance = 250
+$splitContainer.BackColor = $darkBackground
+$splitContainer.Panel1.BackColor = $cardBackground
+$splitContainer.Panel2.BackColor = $cardBackground
+$mainLayout.Controls.Add($splitContainer, 0, 1)
 
-# Folder ListView
-$listView = New-Object System.Windows.Forms.ListView
-$listView.View       = 'Details'
-$listView.Dock       = 'Fill'
-$listView.FullRowSelect = $true
-$listView.MultiSelect   = $true
-$listView.BackColor     = $darkBackground
-$listView.ForeColor     = $lightText
-$listView.BorderStyle   = 'FixedSingle'
-$listView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
-$listView.HeaderStyle   = 'None'
+# Folders Panel
+$foldersPanel = New-Object System.Windows.Forms.Panel
+$foldersPanel.Dock = 'Fill'
+$foldersPanel.Padding = New-Object System.Windows.Forms.Padding(15)
+$splitContainer.Panel1.Controls.Add($foldersPanel)
+
+# Folders Title
+$foldersTitle = New-Object System.Windows.Forms.Label
+$foldersTitle.Text      = "SCRIPT CATEGORIES"
+$foldersTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$foldersTitle.ForeColor = $secondaryText
+$foldersTitle.AutoSize  = $true
+$foldersTitle.Location  = New-Object System.Drawing.Point(10, 10)
+$foldersPanel.Controls.Add($foldersTitle)
+
+# Folders ListView
+$foldersListView = New-Object System.Windows.Forms.ListView
+$foldersListView.View       = 'Details'
+$foldersListView.Location   = New-Object System.Drawing.Point(10, 40)
+$foldersListView.Size       = New-Object System.Drawing.Size(800, 180)
+$foldersListView.FullRowSelect = $true
+$foldersListView.MultiSelect   = $false
+$foldersListView.BackColor     = $darkBackground
+$foldersListView.ForeColor     = $lightText
+$foldersListView.BorderStyle   = 'FixedSingle'
+$foldersListView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
+$foldersListView.HeaderStyle   = 'None'
 
 # Add folder icon
 try {
-    $listView.SmallImageList = New-Object System.Windows.Forms.ImageList
-    $listView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
+    $foldersListView.SmallImageList = New-Object System.Windows.Forms.ImageList
+    $foldersListView.SmallImageList.ImageSize = New-Object System.Drawing.Size(24, 24)
     $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
-    $listView.SmallImageList.Images.Add($folderIcon)
+    $foldersListView.SmallImageList.Images.Add($folderIcon)
 } catch {
     # Continue without icons if extraction fails
 }
 
-$listView.Columns.Add("Folders", 700) | Out-Null
-$cardLayout.Controls.Add($listView, 0, 1)
+$foldersListView.Columns.Add("Folders", 780) | Out-Null
+$foldersPanel.Controls.Add($foldersListView)
+
+# Files Panel
+$filesPanel = New-Object System.Windows.Forms.Panel
+$filesPanel.Dock = 'Fill'
+$filesPanel.Padding = New-Object System.Windows.Forms.Padding(15)
+$splitContainer.Panel2.Controls.Add($filesPanel)
+
+# Files Title
+$filesTitle = New-Object System.Windows.Forms.Label
+$filesTitle.Text      = "SQL SCRIPTS"
+$filesTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$filesTitle.ForeColor = $secondaryText
+$filesTitle.AutoSize  = $true
+$filesTitle.Location  = New-Object System.Drawing.Point(10, 10)
+$filesPanel.Controls.Add($filesTitle)
+
+# Files ListView
+$filesListView = New-Object System.Windows.Forms.ListView
+$filesListView.View       = 'Details'
+$filesListView.Location   = New-Object System.Drawing.Point(10, 40)
+$filesListView.Size       = New-Object System.Drawing.Size(800, 300)
+$filesListView.FullRowSelect = $true
+$filesListView.MultiSelect   = $false
+$filesListView.BackColor     = $darkBackground
+$filesListView.ForeColor     = $lightText
+$filesListView.BorderStyle   = 'FixedSingle'
+$filesListView.Font          = New-Object System.Drawing.Font("Segoe UI", 10)
+$filesListView.HeaderStyle   = 'None'
+$filesListView.Columns.Add("Scripts", 780) | Out-Null
+$filesPanel.Controls.Add($filesListView)
 
 # Button Container
 $buttonContainer = New-Object System.Windows.Forms.Panel
@@ -197,38 +269,21 @@ $mainLayout.Controls.Add($buttonContainer, 0, 2)
 $buttonLayout = New-Object System.Windows.Forms.FlowLayoutPanel
 $buttonLayout.Dock = 'Fill'
 $buttonLayout.FlowDirection = 'RightToLeft'
-$buttonLayout.Padding = New-Object System.Windows.Forms.Padding(0, 10, 0, 10)
+$buttonLayout.Padding = New-Object System.Windows.Forms.Padding(0, 10, 20, 10)
 $buttonContainer.Controls.Add($buttonLayout)
 
-# Download Button
-$btnDownload = New-Object System.Windows.Forms.Button
-$btnDownload.Text       = 'DOWNLOAD SELECTED'
-$btnDownload.Size       = New-Object System.Drawing.Size(200, 45)
-$btnDownload.BackColor  = $primaryBlue
-$btnDownload.ForeColor  = $lightText
-$btnDownload.Enabled    = $false
-$btnDownload.FlatStyle  = 'Flat'
-$btnDownload.FlatAppearance.BorderSize = 0
-$btnDownload.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$btnDownload.Cursor = [System.Windows.Forms.Cursors]::Hand
-$buttonLayout.Controls.Add($btnDownload)
-
-# Spacer
-$spacer = New-Object System.Windows.Forms.Panel
-$spacer.Size = New-Object System.Drawing.Size(15, 10)
-$buttonLayout.Controls.Add($spacer)
-
-# Refresh Button
-$btnRefresh = New-Object System.Windows.Forms.Button
-$btnRefresh.Text       = 'REFRESH'
-$btnRefresh.Size       = New-Object System.Drawing.Size(120, 45)
-$btnRefresh.BackColor  = $buttonBackground
-$btnRefresh.ForeColor  = $lightText
-$btnRefresh.FlatStyle  = 'Flat'
-$btnRefresh.FlatAppearance.BorderSize = 0
-$btnRefresh.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-$btnRefresh.Cursor = [System.Windows.Forms.Cursors]::Hand
-$buttonLayout.Controls.Add($btnRefresh)
+# Run Button
+$btnRun = New-Object System.Windows.Forms.Button
+$btnRun.Text       = 'RUN SCRIPT'
+$btnRun.Size       = New-Object System.Drawing.Size(150, 45)
+$btnRun.BackColor  = $successGreen
+$btnRun.ForeColor  = $lightText
+$btnRun.Enabled    = $false
+$btnRun.FlatStyle  = 'Flat'
+$btnRun.FlatAppearance.BorderSize = 0
+$btnRun.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$btnRun.Cursor = [System.Windows.Forms.Cursors]::Hand
+$buttonLayout.Controls.Add($btnRun)
 
 # Status Bar
 $statusBar = New-Object System.Windows.Forms.StatusBar
@@ -256,6 +311,129 @@ $progressBar.Visible = $false
 $progressBar.ForeColor = $progressBlue
 $form.Controls.Add($progressBar)
 
+# Function to show credentials form
+function Show-CredentialsForm {
+    $credentialsForm = New-Object System.Windows.Forms.Form
+    $credentialsForm.Text = "Database Credentials"
+    $credentialsForm.Size = '400, 300'
+    $credentialsForm.StartPosition = 'CenterScreen'
+    $credentialsForm.FormBorderStyle = 'FixedDialog'
+    $credentialsForm.BackColor = $darkBackground
+    $credentialsForm.Padding = New-Object System.Windows.Forms.Padding(20)
+    
+    $tableLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $tableLayout.Dock = 'Fill'
+    $tableLayout.ColumnCount = 2
+    $tableLayout.RowCount = 5
+    $tableLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 30))) | Out-Null
+    $tableLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 70))) | Out-Null
+    $credentialsForm.Controls.Add($tableLayout)
+    
+    # Server
+    $lblServer = New-Object System.Windows.Forms.Label
+    $lblServer.Text = "Server:"
+    $lblServer.ForeColor = $lightText
+    $lblServer.Dock = 'Fill'
+    $lblServer.TextAlign = 'MiddleRight'
+    $tableLayout.Controls.Add($lblServer, 0, 0)
+    
+    $txtServer = New-Object System.Windows.Forms.TextBox
+    $txtServer.Dock = 'Fill'
+    $txtServer.BackColor = $darkBackground
+    $txtServer.ForeColor = $lightText
+    $txtServer.BorderStyle = 'FixedSingle'
+    $tableLayout.Controls.Add($txtServer, 1, 0)
+    
+    # Database
+    $lblDatabase = New-Object System.Windows.Forms.Label
+    $lblDatabase.Text = "Database:"
+    $lblDatabase.ForeColor = $lightText
+    $lblDatabase.Dock = 'Fill'
+    $lblDatabase.TextAlign = 'MiddleRight'
+    $tableLayout.Controls.Add($lblDatabase, 0, 1)
+    
+    $txtDatabase = New-Object System.Windows.Forms.TextBox
+    $txtDatabase.Dock = 'Fill'
+    $txtDatabase.BackColor = $darkBackground
+    $txtDatabase.ForeColor = $lightText
+    $txtDatabase.BorderStyle = 'FixedSingle'
+    $tableLayout.Controls.Add($txtDatabase, 1, 1)
+    
+    # Username
+    $lblUsername = New-Object System.Windows.Forms.Label
+    $lblUsername.Text = "Username:"
+    $lblUsername.ForeColor = $lightText
+    $lblUsername.Dock = 'Fill'
+    $lblUsername.TextAlign = 'MiddleRight'
+    $tableLayout.Controls.Add($lblUsername, 0, 2)
+    
+    $txtUsername = New-Object System.Windows.Forms.TextBox
+    $txtUsername.Dock = 'Fill'
+    $txtUsername.BackColor = $darkBackground
+    $txtUsername.ForeColor = $lightText
+    $txtUsername.BorderStyle = 'FixedSingle'
+    $tableLayout.Controls.Add($txtUsername, 1, 2)
+    
+    # Password
+    $lblPassword = New-Object System.Windows.Forms.Label
+    $lblPassword.Text = "Password:"
+    $lblPassword.ForeColor = $lightText
+    $lblPassword.Dock = 'Fill'
+    $lblPassword.TextAlign = 'MiddleRight'
+    $tableLayout.Controls.Add($lblPassword, 0, 3)
+    
+    $txtPassword = New-Object System.Windows.Forms.TextBox
+    $txtPassword.Dock = 'Fill'
+    $txtPassword.BackColor = $darkBackground
+    $txtPassword.ForeColor = $lightText
+    $txtPassword.BorderStyle = 'FixedSingle'
+    $txtPassword.PasswordChar = '*'
+    $tableLayout.Controls.Add($txtPassword, 1, 3)
+    
+    # Buttons
+    $buttonPanel = New-Object System.Windows.Forms.Panel
+    $buttonPanel.Dock = 'Fill'
+    $buttonPanel.Height = 40
+    $tableLayout.Controls.Add($buttonPanel, 0, 4)
+    $tableLayout.SetColumnSpan($buttonPanel, 2)
+    
+    $btnSave = New-Object System.Windows.Forms.Button
+    $btnSave.Text = "SAVE"
+    $btnSave.Size = New-Object System.Drawing.Size(100, 30)
+    $btnSave.BackColor = $primaryBlue
+    $btnSave.ForeColor = $lightText
+    $btnSave.FlatStyle = 'Flat'
+    $btnSave.FlatAppearance.BorderSize = 0
+    $btnSave.Location = New-Object System.Drawing.Point(150, 5)
+    $btnSave.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $buttonPanel.Controls.Add($btnSave)
+    
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Text = "CANCEL"
+    $btnCancel.Size = New-Object System.Drawing.Size(100, 30)
+    $btnCancel.BackColor = $buttonBackground
+    $btnCancel.ForeColor = $lightText
+    $btnCancel.FlatStyle = 'Flat'
+    $btnCancel.FlatAppearance.BorderSize = 0
+    $btnCancel.Location = New-Object System.Drawing.Point(260, 5)
+    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $buttonPanel.Controls.Add($btnCancel)
+    
+    $credentialsForm.AcceptButton = $btnSave
+    $credentialsForm.CancelButton = $btnCancel
+    
+    if ($credentialsForm.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        return @{
+            Server = $txtServer.Text
+            Database = $txtDatabase.Text
+            Username = $txtUsername.Text
+            Password = $txtPassword.Text
+        }
+    }
+    
+    return $null
+}
+
 # Populate folder list
 $loadFolders = {
     try {
@@ -272,20 +450,19 @@ $loadFolders = {
             return
         }
         
-        $listView.BeginUpdate()
-        $listView.Items.Clear()
+        $foldersListView.BeginUpdate()
+        $foldersListView.Items.Clear()
         foreach ($dir in $dirs) {
             $item = New-Object System.Windows.Forms.ListViewItem($dir.name)
             $item.Tag = $dir.path
-            if ($listView.SmallImageList -ne $null) {
+            if ($foldersListView.SmallImageList -ne $null) {
                 $item.ImageIndex = 0
             }
             $item.ForeColor = $lightText
-            $listView.Items.Add($item) | Out-Null
+            $foldersListView.Items.Add($item) | Out-Null
         }
-        $listView.EndUpdate()
-        $statusLabel.Text = "$($dirs.Count) folders found - Select folders to download"
-        $btnDownload.Enabled = $true
+        $foldersListView.EndUpdate()
+        $statusLabel.Text = "$($dirs.Count) folders found"
     } catch {
         $statusLabel.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
@@ -299,118 +476,136 @@ $loadFolders = {
     }
 }
 
-# Download selected folders
-$btnDownload.Add_Click({
-    if ($listView.SelectedItems.Count -eq 0) {
+# Folder selection handler
+$foldersListView.Add_ItemSelectionChanged({
+    if ($_.IsSelected) {
+        $selectedItem = $_.Item
+        $folderPath = $selectedItem.Tag
+        $statusLabel.Text = "Loading scripts for: $($selectedItem.Text)"
+        
+        try {
+            $filesListView.BeginUpdate()
+            $filesListView.Items.Clear()
+            $btnRun.Enabled = $false
+            
+            $sqlFiles = Get-SqlFilesInFolder -FolderPath $folderPath
+            
+            if ($sqlFiles) {
+                foreach ($file in $sqlFiles) {
+                    $item = New-Object System.Windows.Forms.ListViewItem($file.Name)
+                    $item.Tag = $file
+                    $item.ForeColor = $lightText
+                    $filesListView.Items.Add($item) | Out-Null
+                }
+                $btnRun.Enabled = $true
+                $statusLabel.Text = "$($sqlFiles.Count) SQL scripts found"
+            } else {
+                $statusLabel.Text = "No SQL scripts found in this folder"
+            }
+        } catch {
+            $statusLabel.Text = "Error: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Error loading scripts:`n$($_.Exception.Message)",
+                'Error',
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            ) | Out-Null
+        } finally {
+            $filesListView.EndUpdate()
+        }
+    }
+})
+
+# Script selection handler
+$filesListView.Add_ItemSelectionChanged({
+    if ($_.IsSelected) {
+        $btnRun.Enabled = $true
+    }
+})
+
+# Run button handler
+$btnRun.Add_Click({
+    if ($filesListView.SelectedItems.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show(
-            'Please select at least one folder to download',
+            'Please select a script to run',
             'Selection Required',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
         ) | Out-Null
         return
     }
-
-    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dlg.Description = "Select download location"
-    $dlg.RootFolder = 'MyComputer'
-    $dlg.ShowNewFolderButton = $true
     
-    if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { 
-        $statusLabel.Text = "Download canceled"
-        return 
-    }
-
-    $totalFiles = 0
-    $successCount = 0
-    $foldersToDownload = $listView.SelectedItems
-    
-    try {
-        # Setup progress UI
-        $progressBar.Visible = $true
-        $progressBar.Style = 'Continuous'
-        $progressBar.Value = 0
-        $btnDownload.Enabled = $false
-        $listView.Enabled = $false
-        $statusLabel.Text = "Preparing download..."
-        $form.Refresh()
-        
-        # First pass: Count total files
-        foreach ($item in $foldersToDownload) {
-            $path = $item.Tag
-            $files = Get-GitHubFileList -Path $path -ProgressBar $progressBar -StatusLabel $statusLabel
-            $totalFiles += $files.Count
-        }
-        
-        if ($totalFiles -eq 0) {
-            $statusLabel.Text = "No files found in selected folders"
+    # Get credentials if not already set
+    if (-not $global:SqlCredentials) {
+        $creds = Show-CredentialsForm
+        if (-not $creds) {
+            $statusLabel.Text = "Operation canceled - credentials not set"
             return
         }
+        $global:SqlCredentials = $creds
+        $credentialsStatus.Text = "Credentials: Set"
+        $credentialsStatus.ForeColor = $successGreen
+    }
+    
+    $selectedItem = $filesListView.SelectedItems[0]
+    $fileInfo = $selectedItem.Tag
+    $statusLabel.Text = "Running script: $($fileInfo.Name)"
+    $progressBar.Visible = $true
+    $progressBar.Style = 'Marquee'
+    $form.Refresh()
+    
+    try {
+        # Download script content
+        $scriptContent = (Invoke-WebRequest -Uri $fileInfo.DownloadUrl -Headers $Headers -UserAgent "PowerShellApp").Content
         
-        $progressBar.Maximum = $totalFiles
-        $progressBar.Value = 0
-        $counter = 0
+        # Run SQL script
+        $result = Invoke-SqlScript -ScriptContent $scriptContent `
+            -Server $global:SqlCredentials.Server `
+            -Database $global:SqlCredentials.Database `
+            -Username $global:SqlCredentials.Username `
+            -Password $global:SqlCredentials.Password
         
-        # Second pass: Download files
-        foreach ($item in $foldersToDownload) {
-            $folder = $item.Text
-            $path = $item.Tag
-            $statusLabel.Text = "Processing folder: $folder"
-            $form.Refresh()
-            
-            $files = Get-GitHubFileList -Path $path -ProgressBar $null -StatusLabel $statusLabel
-            
-            foreach ($file in $files) {
-                $counter++
-                $progressBar.Value = $counter
-                $statusLabel.Text = "Downloading file $counter/$totalFiles - $($file.RelativePath)"
-                $form.Refresh()
-
-                # Proper path combining
-                $basePath = Join-Path -Path $dlg.SelectedPath -ChildPath $folder
-                $localPath = Join-Path -Path $basePath -ChildPath $file.RelativePath
-                $dirPath = [System.IO.Path]::GetDirectoryName($localPath)
-                
-                if (-not (Test-Path $dirPath)) {
-                    New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
-                }
-                
-                try {
-                    Invoke-WebRequest -Uri $file.DownloadUrl -OutFile $localPath -Headers $Headers -UserAgent "PowerShellApp"
-                    $successCount++
-                } catch {
-                    $statusLabel.Text = "Error downloading $($file.RelativePath): $($_.Exception.Message)"
-                }
-            }
+        if ($result) {
+            $statusLabel.Text = "Script executed successfully: $($fileInfo.Name)"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Script executed successfully!",
+                'Success',
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            ) | Out-Null
+        } else {
+            $statusLabel.Text = "Error executing script: $($fileInfo.Name)"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Error executing script!",
+                'Error',
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            ) | Out-Null
         }
-
-        [System.Windows.Forms.MessageBox]::Show(
-            "Successfully downloaded $successCount/$totalFiles files to:`n$($dlg.SelectedPath)",
-            'Download Complete',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        ) | Out-Null
-        $statusLabel.Text = "Download completed: $successCount files"
     } catch {
+        $statusLabel.Text = "Error: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show(
-            "Download failed:`n$($_.Exception.Message)",
+            "Error running script:`n$($_.Exception.Message)",
             'Error',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         ) | Out-Null
-        $statusLabel.Text = "Download failed: $($_.Exception.Message)"
     } finally {
         $progressBar.Visible = $false
-        $btnDownload.Enabled = $true
-        $listView.Enabled = $true
     }
 })
 
-# Refresh button handler
-$btnRefresh.Add_Click({
-    $btnDownload.Enabled = $false
-    $statusLabel.Text = "Refreshing folder list..."
-    & $loadFolders
+# Credentials button handler
+$btnCredentials.Add_Click({
+    $creds = Show-CredentialsForm
+    if ($creds) {
+        $global:SqlCredentials = $creds
+        $credentialsStatus.Text = "Credentials: Set"
+        $credentialsStatus.ForeColor = $successGreen
+        $statusLabel.Text = "Database credentials updated"
+    } else {
+        $statusLabel.Text = "Credentials update canceled"
+    }
 })
 
 # Load folders after form shows
@@ -435,17 +630,17 @@ $form.Add_FormClosing({
 })
 
 # Button hover effects
-$btnDownload.Add_MouseEnter({
-    $btnDownload.BackColor = $hoverBlue
+$btnRun.Add_MouseEnter({
+    $btnRun.BackColor = $hoverBlue
 })
-$btnDownload.Add_MouseLeave({
-    $btnDownload.BackColor = $primaryBlue
+$btnRun.Add_MouseLeave({
+    $btnRun.BackColor = $successGreen
 })
-$btnRefresh.Add_MouseEnter({
-    $btnRefresh.BackColor = $hoverBlue
+$btnCredentials.Add_MouseEnter({
+    $btnCredentials.BackColor = $hoverBlue
 })
-$btnRefresh.Add_MouseLeave({
-    $btnRefresh.BackColor = $buttonBackground
+$btnCredentials.Add_MouseLeave({
+    $btnCredentials.BackColor = $buttonBackground
 })
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
