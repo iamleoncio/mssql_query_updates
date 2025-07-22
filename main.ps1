@@ -208,30 +208,32 @@ $treeView.Add_DrawNode({
     
     $e.DrawDefault = $false
     
+    # Calculate dimensions
+    $checkBoxSize = 16
+    $iconSpacing = 5
+    $textOffset = $checkBoxSize + $iconSpacing
+    
     # Draw background
-    if ($e.Node.ImageKey -eq "SQL") {
-        $e.Graphics.FillRectangle(
-            (New-Object System.Drawing.SolidBrush $darkBackground),
-            $e.Bounds
-        )
+    $bgBrush = if ($e.Node.ImageKey -eq "SQL") {
+        New-Object System.Drawing.SolidBrush $darkBackground
     } else {
-        $e.Graphics.FillRectangle(
-            (New-Object System.Drawing.SolidBrush $cardBackground),
-            $e.Bounds
-        )
+        New-Object System.Drawing.SolidBrush $cardBackground
     }
+    $e.Graphics.FillRectangle($bgBrush, $e.Bounds)
     
     # Draw selection background for SQL files
     if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0 -and $e.Node.ImageKey -eq "SQL") {
-        $e.Graphics.FillRectangle(
-            (New-Object System.Drawing.SolidBrush $selectionColor),
-            $e.Bounds
-        )
+        $selectionBrush = New-Object System.Drawing.SolidBrush $selectionColor
+        $e.Graphics.FillRectangle($selectionBrush, $e.Bounds)
     }
     
     # Draw checkbox
-    $checkBoxSize = 16
-    $checkBoxRect = New-Object System.Drawing.Rectangle($e.Bounds.Left, $e.Bounds.Top, $checkBoxSize, $e.Bounds.Height)
+    $checkBoxRect = New-Object System.Drawing.Rectangle(
+        $e.Bounds.Left, 
+        $e.Bounds.Top + ($e.Bounds.Height - $checkBoxSize) / 2,
+        $checkBoxSize,
+        $checkBoxSize
+    )
     $state = if ($e.Node.Checked) { 
         [System.Windows.Forms.VisualStyles.CheckBoxState]::CheckedNormal
     } else { 
@@ -239,35 +241,20 @@ $treeView.Add_DrawNode({
     }
     [System.Windows.Forms.CheckBoxRenderer]::DrawCheckBox($e.Graphics, $checkBoxRect.Location, $state)
     
-    # Draw icon and text
-    $iconSpacing = 5
-    $textOffset = $checkBoxSize + $iconSpacing
-    
+    # Draw icon if available
+    $iconX = $e.Bounds.Left + $textOffset
     if ($treeView.ImageList -ne $null -and $e.Node.ImageKey -ne $null) {
         $image = $treeView.ImageList.Images[$e.Node.ImageKey]
-        $imageRect = New-Object System.Drawing.Rectangle(
-            $e.Bounds.Left + $textOffset,
-            $e.Bounds.Top + ($e.Bounds.Height - $image.Height) / 2,
-            $image.Width,
-            $image.Height
-        )
-        $e.Graphics.DrawImage($image, $imageRect)
+        $iconY = $e.Bounds.Top + ($e.Bounds.Height - $image.Height) / 2
+        $e.Graphics.DrawImage($image, $iconX, $iconY)
         $textOffset += $image.Width + $iconSpacing
     }
     
-    $textRect = New-Object System.Drawing.Rectangle(
-        $e.Bounds.Left + $textOffset,
-        $e.Bounds.Top,
-        $e.Bounds.Width - $textOffset,
-        $e.Bounds.Height
-    )
-    
-    $e.Graphics.DrawString(
-        $e.Node.Text, 
-        $treeView.Font, 
-        (New-Object System.Drawing.SolidBrush $lightText), 
-        $textRect
-    )
+    # Draw text
+    $textX = $e.Bounds.Left + $textOffset
+    $textY = $e.Bounds.Top + ($e.Bounds.Height - $treeView.Font.Height) / 2
+    $textBrush = New-Object System.Drawing.SolidBrush $lightText
+    $e.Graphics.DrawString($e.Node.Text, $treeView.Font, $textBrush, $textX, $textY)
 })
 
 # Add icons
