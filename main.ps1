@@ -109,6 +109,7 @@ $hoverBlue        = '#93c5fd'     # Light blue for hover
 $successGreen     = '#10b981'     # Success green
 $errorRed         = '#ef4444'     # Error red
 $selectionColor   = '#1e3a8a'     # Selection highlight blue
+$highlightColor   = '#3b82f633'   # Light blue highlight for SQL files
 
 # Main Form
 $form = New-Object System.Windows.Forms.Form
@@ -201,23 +202,72 @@ $treeView.ShowRootLines = $false
 $treeView.DrawMode = 'OwnerDrawText'
 $scriptsPanel.Controls.Add($treeView)
 
-# Custom drawing to remove black background on selection
+# Custom drawing to fix selection visuals
 $treeView.Add_DrawNode({
     param($sender, $e)
     
-    $e.DrawDefault = $true
+    $e.DrawDefault = $false
     
-    # Custom highlight for selected nodes
-    if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0) {
+    # Draw background
+    if ($e.Node.ImageKey -eq "SQL") {
+        $e.Graphics.FillRectangle(
+            (New-Object System.Drawing.SolidBrush $darkBackground),
+            $e.Bounds
+        )
+    } else {
+        $e.Graphics.FillRectangle(
+            (New-Object System.Drawing.SolidBrush $cardBackground),
+            $e.Bounds
+        )
+    }
+    
+    # Draw selection background for SQL files
+    if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0 -and $e.Node.ImageKey -eq "SQL") {
         $e.Graphics.FillRectangle(
             (New-Object System.Drawing.SolidBrush $selectionColor),
             $e.Bounds
         )
-        $e.Graphics.DrawString($e.Node.Text, $treeView.Font, 
-            (New-Object System.Drawing.SolidBrush $lightText),
-            $e.Bounds
-        )
     }
+    
+    # Draw checkbox
+    $checkBoxSize = 16
+    $checkBoxRect = New-Object System.Drawing.Rectangle($e.Bounds.Left, $e.Bounds.Top, $checkBoxSize, $e.Bounds.Height)
+    $state = if ($e.Node.Checked) { 
+        [System.Windows.Forms.VisualStyles.CheckBoxState]::CheckedNormal
+    } else { 
+        [System.Windows.Forms.VisualStyles.CheckBoxState]::UncheckedNormal 
+    }
+    [System.Windows.Forms.CheckBoxRenderer]::DrawCheckBox($e.Graphics, $checkBoxRect.Location, $state)
+    
+    # Draw icon and text
+    $iconSpacing = 5
+    $textOffset = $checkBoxSize + $iconSpacing
+    
+    if ($treeView.ImageList -ne $null -and $e.Node.ImageKey -ne $null) {
+        $image = $treeView.ImageList.Images[$e.Node.ImageKey]
+        $imageRect = New-Object System.Drawing.Rectangle(
+            $e.Bounds.Left + $textOffset,
+            $e.Bounds.Top + ($e.Bounds.Height - $image.Height) / 2,
+            $image.Width,
+            $image.Height
+        )
+        $e.Graphics.DrawImage($image, $imageRect)
+        $textOffset += $image.Width + $iconSpacing
+    }
+    
+    $textRect = New-Object System.Drawing.Rectangle(
+        $e.Bounds.Left + $textOffset,
+        $e.Bounds.Top,
+        $e.Bounds.Width - $textOffset,
+        $e.Bounds.Height
+    )
+    
+    $e.Graphics.DrawString(
+        $e.Node.Text, 
+        $treeView.Font, 
+        (New-Object System.Drawing.SolidBrush $lightText), 
+        $textRect
+    )
 })
 
 # Add icons
@@ -447,6 +497,7 @@ function Populate-TreeView {
                 
                 # Add dummy node to enable expansion arrow
                 $dummyNode = New-Object System.Windows.Forms.TreeNode("Loading...")
+                $dummyNode.ForeColor = $secondaryText
                 $folderNode.Nodes.Add($dummyNode) | Out-Null
                 
                 $treeView.Nodes.Add($folderNode) | Out-Null
@@ -515,6 +566,13 @@ $treeView.Add_AfterCheck({
         # If it's a folder, propagate check state to all children
         if ($node.ImageKey -eq "Folder") {
             $isChecked = $node.Checked
+            
+            # If folder hasn't been expanded yet, expand it to load children
+            if ($node.Nodes.Count -eq 1 -and $node.Nodes[0].Text -eq "Loading...") {
+                $node.Expand()
+            }
+            
+            # Propagate check state to all children
             foreach ($childNode in $node.Nodes) {
                 $childNode.Checked = $isChecked
             }
@@ -525,13 +583,7 @@ $treeView.Add_AfterCheck({
 # TreeView AfterSelect event - Enable run button when scripts are selected
 $treeView.Add_AfterSelect({
     $selectedNode = $treeView.SelectedNode
-    
-    # Only enable run button if SQL file is selected
-    if ($selectedNode -and $selectedNode.ImageKey -eq "SQL") {
-        $btnRun.Enabled = $true
-    } else {
-        $btnRun.Enabled = $false
-    }
+    $btnRun.Enabled = ($selectedNode -and $selectedNode.ImageKey -eq "SQL")
 })
 
 # Helper function to get selected files from tree
@@ -626,6 +678,21 @@ function Show-ResultsForm($successFiles, $failedFiles) {
     $failedList.Items.AddRange($failedFiles)
     $failedPanel.Controls.Add($failedList)
     
+    # OK Button
+    $btnOK = New-Object System.Windows.Forms.Button
+    $btnOK.Text = "OK"
+    $btnOK.Size = New-Object System.Drawing.Size(100, 35)
+    $btnOK.BackColor = $primaryBlue
+    $btnOK.ForeColor = $lightText
+    $btnOK.FlatStyle = 'Flat'
+    $btnOK.FlatAppearance.BorderSize = 0
+    $btnOK.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $btnOK.Anchor = 'Bottom, Right'
+    $btnOK.Location = New-Object System.Drawing.Point(480, 10)
+    $failedPanel.Controls.Add($btnOK)
+    
+    $resultsForm.AcceptButton = $btnOK
     $resultsForm.ShowDialog() | Out-Null
 }
 
