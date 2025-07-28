@@ -109,7 +109,6 @@ $hoverBlue        = '#93c5fd'     # Light blue for hover
 $successGreen     = '#10b981'     # Success green
 $errorRed         = '#ef4444'     # Error red
 $selectionColor   = '#1e3a8a'     # Selection highlight blue
-$highlightColor   = '#3b82f633'   # Light blue highlight for SQL files
 
 # Main Form
 $form = New-Object System.Windows.Forms.Form
@@ -210,19 +209,14 @@ $treeView.Add_DrawNode({
     
     # Calculate dimensions
     $checkBoxSize = 16
-    $iconSpacing = 5
-    $textOffset = $checkBoxSize + $iconSpacing
+    $textOffset = $checkBoxSize + 5
     
     # Draw background
-    $bgBrush = if ($e.Node.ImageKey -eq "SQL") {
-        New-Object System.Drawing.SolidBrush $darkBackground
-    } else {
-        New-Object System.Drawing.SolidBrush $cardBackground
-    }
+    $bgBrush = New-Object System.Drawing.SolidBrush $darkBackground
     $e.Graphics.FillRectangle($bgBrush, $e.Bounds)
     
     # Draw selection background for SQL files
-    if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0 -and $e.Node.ImageKey -eq "SQL") {
+    if (($e.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -ne 0) {
         $selectionBrush = New-Object System.Drawing.SolidBrush $selectionColor
         $e.Graphics.FillRectangle($selectionBrush, $e.Bounds)
     }
@@ -241,39 +235,12 @@ $treeView.Add_DrawNode({
     }
     [System.Windows.Forms.CheckBoxRenderer]::DrawCheckBox($e.Graphics, $checkBoxRect.Location, $state)
     
-    # Draw icon if available
-    $iconX = $e.Bounds.Left + $textOffset
-    if ($treeView.ImageList -ne $null -and $e.Node.ImageKey -ne $null) {
-        $image = $treeView.ImageList.Images[$e.Node.ImageKey]
-        $iconY = $e.Bounds.Top + ($e.Bounds.Height - $image.Height) / 2
-        $e.Graphics.DrawImage($image, $iconX, $iconY)
-        $textOffset += $image.Width + $iconSpacing
-    }
-    
     # Draw text
     $textX = $e.Bounds.Left + $textOffset
     $textY = $e.Bounds.Top + ($e.Bounds.Height - $treeView.Font.Height) / 2
     $textBrush = New-Object System.Drawing.SolidBrush $lightText
     $e.Graphics.DrawString($e.Node.Text, $treeView.Font, $textBrush, $textX, $textY)
 })
-
-# Add icons
-try {
-    $imageList = New-Object System.Windows.Forms.ImageList
-    $imageList.ImageSize = New-Object System.Drawing.Size(24, 24)
-    
-    # Folder icon
-    $folderIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\shell32.dll")
-    $imageList.Images.Add("Folder", $folderIcon) | Out-Null
-    
-    # SQL file icon (using document icon as substitute)
-    $fileIcon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\system32\imageres.dll")
-    $imageList.Images.Add("SQL", $fileIcon) | Out-Null
-    
-    $treeView.ImageList = $imageList
-} catch {
-    # Continue without icons if extraction fails
-}
 
 # Button Container
 $buttonContainer = New-Object System.Windows.Forms.Panel
@@ -479,8 +446,6 @@ function Populate-TreeView {
             if ($item.type -eq 'dir') {
                 $folderNode = New-Object System.Windows.Forms.TreeNode($item.name)
                 $folderNode.Tag = $item.path
-                $folderNode.ImageKey = "Folder"
-                $folderNode.SelectedImageKey = "Folder"
                 
                 # Add dummy node to enable expansion arrow
                 $dummyNode = New-Object System.Windows.Forms.TreeNode("Loading...")
@@ -524,8 +489,6 @@ $treeView.Add_BeforeExpand({
             foreach ($file in $sqlFiles) {
                 $fileNode = New-Object System.Windows.Forms.TreeNode($file.Name)
                 $fileNode.Tag = $file
-                $fileNode.ImageKey = "SQL"
-                $fileNode.SelectedImageKey = "SQL"
                 $node.Nodes.Add($fileNode) | Out-Null
             }
             
@@ -551,7 +514,7 @@ $treeView.Add_AfterCheck({
     # Only process if the change came from the user
     if ($_.Action -ne [System.Windows.Forms.TreeViewAction]::Unknown) {
         # If it's a folder, propagate check state to all children
-        if ($node.ImageKey -eq "Folder") {
+        if ($node.Nodes.Count -gt 0) {
             $isChecked = $node.Checked
             
             # If folder hasn't been expanded yet, expand it to load children
@@ -570,7 +533,7 @@ $treeView.Add_AfterCheck({
 # TreeView AfterSelect event - Enable run button when scripts are selected
 $treeView.Add_AfterSelect({
     $selectedNode = $treeView.SelectedNode
-    $btnRun.Enabled = ($selectedNode -and $selectedNode.ImageKey -eq "SQL")
+    $btnRun.Enabled = ($selectedNode -and $selectedNode.Tag -and $selectedNode.Tag.GetType().Name -eq 'PSCustomObject')
 })
 
 # Helper function to get selected files from tree
@@ -578,13 +541,13 @@ function Get-SelectedFiles($node) {
     $selected = @()
     
     # If it's a folder, get all checked SQL files in it
-    if ($node.ImageKey -eq "Folder" -and $node.Checked) {
+    if ($node.Nodes.Count -gt 0 -and $node.Checked) {
         foreach ($child in $node.Nodes) {
             $selected += Get-SelectedFiles $child
         }
     }
     # If it's a SQL file and checked, add it
-    elseif ($node.ImageKey -eq "SQL" -and $node.Checked) {
+    elseif ($node.Tag -and $node.Tag.GetType().Name -eq 'PSCustomObject' -and $node.Checked) {
         $selected += $node.Tag
     }
     
