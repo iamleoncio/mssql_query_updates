@@ -119,7 +119,7 @@ AS
    SELECT @CanWaived =     
     case  
         when @paccttype in  (420,461,475,323) then 0   
-        when @Frequency in (12,1) and count(*)  =1 then CEILING((@pInterest  / datediff(dd,@pdisbdate,DUEDATE)) * datediff(dd,@pdisbdate,@SysDate) /5.0) * 5  
+        when @pdomaturity >= @SysDate and  @Frequency in (12,1) and count(*)  =1 then CEILING((@pInterest  / datediff(dd,@pdisbdate,DUEDATE)) * datediff(dd,@pdisbdate,@SysDate))
         else Sum(IntR)   
     end            
    FROM @LoanInst         
