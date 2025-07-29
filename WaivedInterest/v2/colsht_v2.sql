@@ -110,9 +110,9 @@ LEFT JOIN
              THEN a.Oth - (InstPD-a.IntR-a.Prin) ELSE a.Oth END) iBalOth,                                      
     m.Principal-m.Prin BalPrin, m.Interest-m.Others-m.Intr-m.Oth BalInt,                                    
     SUM(CASE 
-             when   m.domaturity >= ebsysdate and m.frequency in (12,1) and amortCnt  =1 and m.accttype not in (420,461,475,323) 
+             when   m.domaturity >= ebsysdate and m.frequency in (12,1) and amortCnt  =1 and m.accttype not in (420,461,475,323,321) 
              THEN CEILING((m.interest  / datediff(dd,m.disbdate,a.duedate)) * datediff(dd,m.disbdate,ebsysdate))
-             WHEN DBO.Friday(DueDate) > DBO.Friday(ebSysDate) AND IsNull(WaivableInt,1) = 1   and duedate<= domaturity   and m.accttype not in (420,461,475,323)                                 
+             WHEN DBO.Friday(DueDate) > DBO.Friday(ebSysDate) AND IsNull(WaivableInt,1) = 1   and duedate<= domaturity   and m.accttype not in (420,461,475,323,321)                                
              THEN a.IntR ELSE 0 END) WaivedInt,                                      
    SUM(CASE WHEN dNum = 1                                     
              THEN a.Prin+a.IntR ELSE 0 END) Amort,                                      
