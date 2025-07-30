@@ -21,7 +21,7 @@
 					union 
 					select acc, trndate , trntype, trndesc, trnamt,prin, intr  from  trandetailshistory t2   where trntype = 3899 or (particulars  = 'Offsetting' and trndesc in ('Business Failure','Health Problem'))
 				)x
-				inner join accounts a on a.acc = x.acc and a.accttype not in (420,461,475,323,321) 
+				inner join accounts a on a.acc = x.acc and a.accttype not in (420,461,475,323,321,483) 
 				left join (select acc, sum(days) mora from 
 							 (select distinct acc , days from moratoriumhistory
 							 )x
