@@ -63,7 +63,8 @@ BEGIN
         @loanbal NUMERIC(14,2),                                      
         @pbtype INT,                  
         @pAge int,                  
-        @pSubclass int                  
+        @pSubclass int,
+        @waivedint numeric(16,2)
                    
 select @pAge = DATEDIFF(YEAR, doBirth, @pdaterel)                     
                             - CASE                     
@@ -177,11 +178,13 @@ BEGIN
     )                                                                
     BEGIN                                                                
   DECLARE @pCharges2 NUMERIC(18,2);                                                                
-        DECLARE @pprevACC VARCHAR(22);                                                                
-                                                                
-        SELECT @pCharges2 = (PRINCIPAL - prin) + (INTEREST - intr), @pprevACC = acc                                                                
+        DECLARE @pprevACC VARCHAR(22);       
+      
+select @waivedint = waivedint from CurrentLoanBal(@pprevacc)                                                          
+SELECT @pCharges2 = (PRINCIPAL - prin) + (INTEREST - intr) - @waivedint, @pprevACC = acc                                                                
 FROM lnmaster                                                                
- WHERE cid = @pCID AND ACCTTYPE = @pType AND status IN (30, 91);                                                                
+ WHERE cid = @pCID AND ACCTTYPE = @pType AND status IN (30, 91);      
+ 
                                                                 
         INSERT INTO LNCHRGDATA (acc, chd, CHRGCODE, CHRDESC, CHRAMNT, CHRBAL, RefAcc)                                                                
         VALUES (@pAcc, 0, 18, 'Previous Loan', @pCharges2, @pCharges2, @pprevACC);                                                                
@@ -256,3 +259,5 @@ VALUES(@pRefno, @pMidasdate,@pMidasresult,@pMidasremarks, @pRecommender,@pRecomm
 END ;                                                  
                             
   PRINT 'Successfully Released from CAGABAY LOS'; 
+
+  

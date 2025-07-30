@@ -1,4 +1,4 @@
-CREATE FUNCTION dbo.fn_amortization          
+alter FUNCTION dbo.fn_amortization          
 (          
     @pAcc VARCHAR(22),      
     @pPrincipal INT,          
@@ -71,7 +71,10 @@ BEGIN
             END;  
   
         -- Skip holiday range: Dec 21 – Jan 4  
-        WHILE @DueDate BETWEEN DATEFROMPARTS(YEAR(@DueDate), 12, 21) AND DATEFROMPARTS(YEAR(@DueDate) + 1, 1, 4)  
+    WHILE @DueDate BETWEEN 
+        CAST(CAST(YEAR(@DueDate) AS VARCHAR(4)) + '-12-21' AS DATETIME) 
+        AND 
+        CAST(CAST(YEAR(@DueDate) + 1 AS VARCHAR(4)) + '-01-04' AS DATETIME)
         BEGIN  
             SET @PrevDate = @DueDate;  
             SET @DueDate =   
