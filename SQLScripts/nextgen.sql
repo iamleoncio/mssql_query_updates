@@ -44,6 +44,7 @@ where a.balance <> t.balance
 
 
 --Generate Waive
+--Generate Waive
 
 	with param as (
 			select '2025-07-29'::date date1 ,'2025-07-29'::date date2
@@ -77,10 +78,15 @@ where a.balance <> t.balance
 			)
 			select o3.officename area, o2.officename unit, o.officename center, c.cid, concat(c.lastname, ', ', c.firstname, ' ',c.middlename)Memname,
 			a.acc,a.accdesc, t.trndesc, t.trndate,t.trnamt, t.prin, t.intr,
-			sum(lo.intr) waived
+			case 
+					when am.amortCnt  = 1 then a.interest - CEILING((interest  / 7 ) * CEILING(DATEDIFF(DAY, a.disbdate, t.trndate) / 7.0))
+					else
+					sum(lo.intr) 
+			end waived
 			from trn t 
 				inner join accounts a on a.acc = t.acc
 				inner join loaninst lo on lo.acc = t.acc and lo.duedate > t.refdate and lo.duedate <= t.xdomaturity + (((5 - EXTRACT(DOW FROM t.xdomaturity))::int % 7) || ' days')::interval
+				inner join (select acc , count(*)amortCnt from loaninst group by acc ) am on am.acc = a.acc
 				inner join customer c on c.cid = a.cid
 				inner join office o on o.officeid = c.centercode
 				inner join office o2 on o2.officeid = o.parentid
