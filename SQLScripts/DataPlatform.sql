@@ -1,3 +1,4 @@
+--get balances
 with param as (
 select '2025-07-28'::date date1
 )
@@ -34,5 +35,6 @@ group by x.brcode
 			   )
 		select b.areaname,client, Balance,lo.prinbal, lo.intbal,lo.loanbal from sav s 
 		left join loan lo on lo.brcode  = s.brcode 
-		inner join staging.brcodebranch b on b.brcode = s.brcode 
+		inner join staging.brcodebranch b on b.brcode = s.brcode  and b.region  like '%Luz%'
 		where  (Balance > 0 or lo.loanbal > 0 )
+		
