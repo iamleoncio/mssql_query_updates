@@ -1,7 +1,7 @@
 --Generate Waive
 
 	with param as (
-			select '2025-07-29'::date date1 ,'2025-07-29'::date date2
+			select '2025-07-30'::date date1 ,'2025-07-30'::date date2
 			)
 	,trn as (
 			select x.*, a.accdesc, (a.domaturity + (COALESCE(mora.mora, 0) || ' days')::interval) AS xdomaturity,
