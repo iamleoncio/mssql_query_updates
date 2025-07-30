@@ -119,7 +119,7 @@ AS
    SELECT @CanWaived =           
     case        
         when @paccttype in  (420,461,475,323) then 0         
-        when @pdomaturity >= @SysDate and  @Frequency in (12,1) and count(*)  =1     
+        when @pdomaturity >= @SysDate and  count(*)  =1     
         then @pInterest - CEILING((@pInterest  / 7 ) * CEILING(DATEDIFF(DAY, @pdisbdate, @SysDate) / 7.0))     
         else Sum(IntR)         
     end                  
