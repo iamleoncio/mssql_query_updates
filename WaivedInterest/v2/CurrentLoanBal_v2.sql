@@ -1,6 +1,4 @@
-
-
-    ALTER FUNCTION CurrentLoanBal          
+ ALTER FUNCTION CurrentLoanBal          
      (@Acc as VarChar(22))          
     RETURNS TABLE          
     AS          
@@ -14,8 +12,10 @@
            Sum(a.IntR-CASE WHEN InstPD>a.IntR           THEN a.IntR             ELSE InstPD  END)  BalInt,          
            Sum(IsNull(a.Oth,0)-CASE WHEN InstPD>a.IntR+a.Prin THEN InstPD-a.IntR-a.Prin ELSE 0      END)  BalOth,          
            Sum( CASE          
-                          when m.DOMATURITY >= ebsysdate and  m.frequency in (12,1) and amortCnt  =1 and m.accttype not in (420,461,475,323,321)     
-                          then m.INTEREST - CEILING((m.interest  / 7 ) * CEILING(DATEDIFF(DAY, m.disbdate, ebsysdate) / 7.0))    
+                          when m.DOMATURITY >= ebsysdate and  m.frequency in (0,50) and amortCnt  =1 and m.accttype not in (420,461,475,323,321)     
+                          then m.INTEREST - CEILING((m.interest  / 7 ) * CEILING(DATEDIFF(DAY, m.disbdate, ebsysdate) / 7.0))   
+                          when m.DOMATURITY >= ebsysdate and  m.frequency in (1,12) and amortCnt  =1 and m.accttype not in (420,461,475,323,321)     
+                          then m.INTEREST - CEILING((m.interest  / gives ) * CEILING(DATEDIFF(DAY, m.disbdate, ebsysdate) / 7.0)) 
                           WHEN DueDate-DatePart(dw,DueDate)+DatePart(dw,dbo.RefDueDate(m.Frequency,ebsysDate,0)) >           
                           dbo.RefDueDate(m.Frequency,ebSysDate,0) AND IsNull(WaivableInt,1) = 1 and duedate <= DOMATURITY + 6 - Datepart(dw,domaturity)  
                           and m.accttype not in (420,461,475,323,321)     

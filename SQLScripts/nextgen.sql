@@ -88,3 +88,47 @@ where a.balance <> t.balance
 			group by o3.officename , o2.officename , o.officename , c.cid,
 			a.acc,a.accdesc, t.trndesc, t.trndate,t.trnamt,  t.prin, t.intr
 			order by o3.officename , o2.officename , o.officename , c.cid
+
+--nextgen air
+with param as (
+select '2025-06-30'::date date1
+),
+trn as (	
+select acc, max(trndate)lasttrndate from (
+	select * from transactiondetails dt , param
+	where dt.trndate<= date1   and
+	dt.accttype not in(5000,600,6000,7000) and dt.trntype in(3001,3899) 
+	union
+	select * from trandetailshistory dt, param
+	where dt.trndate<=date1 and 
+	dt.accttype not in(5000,600,6000,7000) and dt.trntype in(3001,3899)  
+	  )x 
+	  group by x.acc 
+	)
+select o3.officename area, o2.officename unit, o.officename, c.cid,e.acc,x.accttype ,x.term ,x.annumdiv,x.dopen,trn.lasttrndate  ,x.principal ,x.interest ,x.loanbal ,e.carval, sum(lo.intr)ReqInt, sum(lo.upint)ActualIntPaid
+from (
+ select c.brcode, c.cid,a.acc,a.dopen,a.accttype , a.term,a.annumdiv  ,a.principal ,a.interest , a.principal - a.prin + interest - a.intr  + 
+ 		coalesce(sum(case when dt.trntype<>0 and mod(dt.trntype,2)=0 and dt.particulars<>'Purchase Load Reversal'  then -dt.trnamt else dt.trnamt end),0) LoanBal,date1
+	  		from accounts  a 
+	  		left join (
+			  		select * from transactiondetails dt , param
+					where dt.trndate> date1   and
+						dt.accttype not in(5000,600,6000,7000) and dt.trntype in(3001,3899) 
+					union
+					select * from trandetailshistory dt, param
+					where dt.trndate> date1 and 
+					dt.accttype not in(5000,600,6000,7000) and dt.trntype in(3001,3899)  
+		   ) dt on dt.acc = a.acc 
+		   inner join customer c on c.cid = a.cid 
+		   group by c.cid,a.acc, a.principal , a.prin ,a.interest , a.intr ,dt.date1 ,a.accttype ,a.term ,a.annumdiv 
+		   ) x
+		   inner join lpp_accruals(971,'2025-06-30'::date) e on e.acc = x.acc 
+		   inner join loaninst lo on lo.acc = x.acc and lo.Duedate <=  x.date1 
+		   inner join customer c on c.cid = x.cid 
+		   inner join office o on o.officeid = c.centercode 
+		   inner join office o2 on o2.officeid = o.parentid
+		   inner join office o3 on o3.officeid = o2.parentid
+		   left join trn on trn.acc = x.acc
+		   where x.loanbal > 0 
+		   group  by o3.officename , o2.officename , o.officename, c.cid,e.acc,x.accttype ,x.term ,x.annumdiv ,x.dopen ,x.principal ,x.interest ,x.loanbal ,e.carval,trn.lasttrndate
+		   order by o3.officename , o2.officename , o.officename, c.cid,e.acc
