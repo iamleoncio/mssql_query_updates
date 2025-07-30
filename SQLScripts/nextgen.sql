@@ -63,9 +63,9 @@ where a.balance <> t.balance
 							end 
 						end refdate
 			from (
-					select acc, trndate , trntype, trndesc, trnamt, prin, intr  from transactiondetails t  where trntype = 3899
+					select acc, trndate , trntype, trndesc, trnamt, prin, intr  from transactiondetails t  where trntype = 3899 or (particulars  = 'Offsetting' and trndesc in ('Business Failure','Health Problem'))
 					union 
-					select acc, trndate , trntype, trndesc, trnamt,prin, intr  from  trandetailshistory t2   where trntype = 3899
+					select acc, trndate , trntype, trndesc, trnamt,prin, intr  from  trandetailshistory t2   where trntype = 3899 or (particulars  = 'Offsetting' and trndesc in ('Business Failure','Health Problem'))
 				)x
 				inner join accounts a on a.acc = x.acc and a.accttype not in (420,461,475,323,321) 
 				left join (select acc, sum(days) mora from 
@@ -76,13 +76,14 @@ where a.balance <> t.balance
 				,param 
 				where x.trndate between date1 and date2 
 			)
+			select * from (
 			select o3.officename area, o2.officename unit, o.officename center, c.cid, concat(c.lastname, ', ', c.firstname, ' ',c.middlename)Memname,
 			a.acc,a.accdesc, t.trndesc, t.trndate,t.trnamt, t.prin, t.intr,
 			case 
-					when am.amortCnt  = 1 then a.interest - CEILING((interest  / 7 ) * CEILING(DATEDIFF(DAY, a.disbdate, t.trndate) / 7.0))
+					 WHEN max(am.amortCnt) = 1 THEN a.interest - CEIL((a.interest / 7) *  CEIL((t.trndate - a.dopen) / 7.0))
 					else
 					sum(lo.intr) 
-			end waived
+			end waived,sav.acc CBUAcc
 			from trn t 
 				inner join accounts a on a.acc = t.acc
 				inner join loaninst lo on lo.acc = t.acc and lo.duedate > t.refdate and lo.duedate <= t.xdomaturity + (((5 - EXTRACT(DOW FROM t.xdomaturity))::int % 7) || ' days')::interval
@@ -91,9 +92,12 @@ where a.balance <> t.balance
 				inner join office o on o.officeid = c.centercode
 				inner join office o2 on o2.officeid = o.parentid
 				inner join office o3 on o3.officeid = o2.parentid
+				inner join accounts sav on sav.cid = c.cid and sav.apptype = 0 
 			group by o3.officename , o2.officename , o.officename , c.cid,
-			a.acc,a.accdesc, t.trndesc, t.trndate,t.trnamt,  t.prin, t.intr
+			a.acc,a.accdesc, t.trndesc, t.trndate,t.trnamt,  t.prin, t.intr,sav.acc
 			order by o3.officename , o2.officename , o.officename , c.cid
+			) x where x.waived > 0 
+			
 
 --nextgen air
 with param as (
