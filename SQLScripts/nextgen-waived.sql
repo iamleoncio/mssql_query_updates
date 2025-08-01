@@ -1,6 +1,6 @@
 
 	with param as (
-			select '2025-07-30'::date date1 ,'2025-07-30'::date date2
+			select '2025-07-01'::date date1 
 			)
 	,trn as (
 				select x.*, a.accdesc, (a.domaturity + (COALESCE(mora.mora, 0) || ' days')::interval) AS xdomaturity,
@@ -27,7 +27,7 @@
 								 group by acc
 								 having sum(days)> 0 ) mora on mora.acc = a.acc
 					,param 
-					where x.trndate between date1 and date2 
+					where x.trndate =date1
 				)
 		,SemiMonthly as (
 					SELECT x.acc,sum(smintr)smintr FROM (
