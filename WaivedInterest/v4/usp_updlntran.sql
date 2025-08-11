@@ -404,4 +404,4 @@ AS
 */                              
  IF @Bal = 0                              
     UPDATE lnMaster SET Status = 99 WHERE Acc = @Acc and Status not in (99 ,98)                   
-    UPDATE lnchrgdata set chramnt = chramnt - isnull(@CanWaived+@PaidWaived,0) where chrgcode = 16 and refAcc = @acc 
+  

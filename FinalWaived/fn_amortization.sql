@@ -64,7 +64,7 @@ BEGIN
         -- Compute next due date    
         SET @DueDate =     
             CASE            
-                WHEN @pFrequency = 50 THEN DATEADD(DAY, 7, @PrevDate)            
+                WHEN @pFrequency in (0,50) THEN DATEADD(DAY, 7, @PrevDate)            
                 WHEN @pFrequency in (1,12) THEN DATEADD(MONTH, 1, @PrevDate)            
                 WHEN @pFrequency in (2,24)  THEN DATEADD(DAY, 14, @PrevDate)            
                 ELSE DATEADD(DAY, 7, @PrevDate)            

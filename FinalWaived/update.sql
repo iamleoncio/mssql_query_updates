@@ -1,0 +1,2 @@
+update orgparms set WaivableInt = 1;
+update loanapplication set contactNumber = a.PHONE4 from ADDRESSES a where a.cid = loanapplication.cid and loanapplication.contactNumber = '' and loanapplication.loand like '%PN%';

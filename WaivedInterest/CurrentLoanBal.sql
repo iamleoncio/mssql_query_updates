@@ -15,5 +15,5 @@ SELECT m.Status, m.Acc,
                       dbo.RefDueDate(m.Frequency,ebSysDate,0) AND IsNull(WaivableInt,1) = 1 and duedate <=DOMATURITY
                  THEN a.IntR ELSE 0 END) WaivedInt    
   FROM lnMaster m INNER JOIN LoanInst a  ON m.Acc = a.Acc, OrgParms    
-  WHERE m.Acc = @Acc    
+  WHERE m.Acc = '03U5-4002-1857598'
   Group by m.Acc,m.Status
