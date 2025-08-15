@@ -1,22 +1,19 @@
-# =========================
-# CONFIG - GitHub Repo
-# =========================
+# ==========================
+# CONFIG
+# ==========================
 $Owner  = 'iamleoncio'
 $Repo   = 'mssql_query_updates'
 $Branch = 'main'
-$GitHubToken = ''   # Optional. Use a fine-grained PAT. If set, we'll use Bearer.
+$GitHubToken = ''  # Optional: Personal Access Token
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Headers
-$Headers = @{
-  'User-Agent' = 'PowerShellApp'
-  'Accept'     = 'application/vnd.github.v3+json'
+$Headers = @{}
+if ($GitHubToken) {
+    $Headers['Authorization'] = "token $GitHubToken"
 }
-if (-not [string]::IsNullOrEmpty($GitHubToken)) {
-  # GitHub recommends "Bearer" for fine-grained PATs. "token" still works for classic PATs.
-  $Headers['Authorization'] = "Bearer $GitHubToken"
-}
+$Headers['User-Agent'] = 'PowerShellScript'
 
 # =========================
 # Globals
