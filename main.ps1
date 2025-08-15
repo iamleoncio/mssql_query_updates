@@ -39,10 +39,21 @@ function Invoke-GHGet {
 }
 
 function Get-GitHubContent {
-  param([string]$Path = '')
+  param(
+    [string]$Owner,
+    [string]$Repo,
+    [string]$Branch,
+    [string]$Path = ''
+  )
+
   $base = "https://api.github.com/repos/$Owner/$Repo/contents"
-  $url  = if ($Path) { "$base/$([uri]::EscapeDataString($Path))?ref=$([uri]::EscapeDataString($Branch))" }
-          else       { "$base?ref=$([uri]::EscapeDataString($Branch))" }
+  $url  = if ($Path) {
+    "$base/$([uri]::EscapeDataString($Path))?ref=$([uri]::EscapeDataString($Branch))"
+  } else {
+    "$base?ref=$([uri]::EscapeDataString($Branch))"
+  }
+
+  Write-Host "DEBUG URL: $url"
   Invoke-GHGet -Url $url
 }
 
