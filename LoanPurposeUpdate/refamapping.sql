@@ -1,10 +1,14 @@
-CREATE TABLE REFMAPPING(
-    REFTYPE VARCHAR(100),
-    title varchar(100),
-    nextgen varchar(50),
-    localcode varchar(50),
-    gabaykonek varchar(50)
-)
+IF OBJECT_ID('dbo.REFMAPPING', 'U') IS NOT NULL
+    DROP TABLE dbo.REFMAPPING;
+
+CREATE TABLE dbo.REFMAPPING (
+    REFTYPE     VARCHAR(100),
+    title       VARCHAR(100),
+    nextgen     VARCHAR(50),
+    localcode   VARCHAR(50),
+    gabaykonek  VARCHAR(50)
+);
+
 
 
 --refmapping

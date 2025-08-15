@@ -1,4 +1,4 @@
-CREATE VIEW [dbo].[ColSht]                                              
+ALTER VIEW [dbo].[ColSht]                                              
 ------ *******************************************************************************************                                                
 -- Added by Macky                                   
 -- Modified by Nelmore 2021-02-21                            
@@ -115,9 +115,8 @@ LEFT JOIN
                       Sum( CASE              
                                       when m.DOMATURITY >= ebsysdate and  amortCnt  =1 and m.accttype not in (420,461,475,323,321,483)         
                                       then m.INTEREST - CEILING((m.interest  / 7 ) * CEILING(DATEDIFF(DAY, m.disbdate, ebsysdate) / 7.0))     
-                                      WHEN DueDate-DatePart(dw,DueDate)+DatePart(dw,dbo.RefDueDate(m.Frequency,ebsysDate,0)) >               
-                                      dbo.RefDueDate(m.Frequency,ebSysDate,0) --AND IsNull(WaivableInt,1) = 1     
-                                      and duedate <= DOMATURITY + 6 - Datepart(dw,domaturity)      
+                                      WHEN OrigDueDt-DatePart(dw,OrigDueDt)+DatePart(dw,dbo.RefDueDate(m.Frequency,ebsysDate,0)) >               
+                                      dbo.RefDueDate(m.Frequency,ebSysDate,0) --AND IsNull(WaivableInt,1) = 1       
                                       and m.accttype not in (420,461,475,323,321,483)         
                                       THEN a.IntR        
                                       ELSE 0 END)   

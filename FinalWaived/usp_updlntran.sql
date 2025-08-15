@@ -74,7 +74,8 @@ AS
      UpInt Numeric(14,2),                                
      ServFee Numeric(14,2),                                
      Oth Numeric(14,2),                                
-     EndOth Numeric(14,2))                           
+     EndOth Numeric(14,2)),
+     OrigDueDt Datetime                          
   -- Get the system Date                                
   SELECT                               
     @SysDate = ebSysDate,                               
@@ -188,7 +189,8 @@ AS
      @iOthEnd    = EndOth,                                
      @iPrinAmort = Prin,                            
      @iIntAmort  = IntR,                                
-     @iOthAmort  = Oth                                
+     @iOthAmort  = Oth,
+     @OrigDueDt  = OrigDueDt                                
    FROM @LoanInst                                  
    WHERE Acc = @Acc                                
      and @Bal Between EndBal+EndInt+EndOth and EndBal+EndInt+EndOth+Prin+IntR+Oth-.0001                                
