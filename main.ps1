@@ -43,10 +43,6 @@ function Get-GitHubContent {
   $base = "https://api.github.com/repos/$Owner/$Repo/contents"
   $url  = if ($Path) { "$base/$([uri]::EscapeDataString($Path))?ref=$([uri]::EscapeDataString($Branch))" }
           else       { "$base?ref=$([uri]::EscapeDataString($Branch))" }
-
-  # Debug output
-  Write-Host "Testing URL: $url"
-
   Invoke-GHGet -Url $url
 }
 
